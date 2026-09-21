@@ -11,7 +11,7 @@ constexpr D2RL::PluginInfo PluginInfo {
     .abiVersion = D2RL_PLUGIN_ABI_VERSION,
     .id = "item-database",
     .name = "D2RR Item Database",
-    .version = "0.3.0",
+    .version = "0.3.1",
     .author = "D2RR Item Database contributors",
     .description = "Dynamic D2R Reimagined item database overlay.",
     .flags = D2RL::PluginFlags::Client,
@@ -81,12 +81,12 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
                 .logicalId = "open-item-database",
                 .displayName = "Open Item Database",
                 .category = "D2RR Item Database",
-                .defaultPrimary = {.key = D2RL::Input::Key::F8},
+                .defaultPrimary = {.key = D2RL::Input::Key::S, .modifier = D2RL::Input::Modifier::Alt},
                 .defaultSecondary = {.key = D2RL::Input::Key::None},
                 .callback = onOpenAction,
             };
             if (input->registerAction(plugin, &action, &openAction) != D2RL::Input::Result::Success)
-                plugin->LogWarn("Item Database F8 action was not registered; use the itemdb console command");
+                plugin->LogWarn("Item Database Alt+S action was not registered; use the itemdb console command");
         } else plugin->LogWarn("Item Database input service unavailable; use the itemdb console command");
         plugin->LogInfo("D2RR Item Database overlay load complete");
         return true;

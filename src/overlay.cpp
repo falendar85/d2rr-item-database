@@ -241,8 +241,11 @@ struct OverlayHost::Impl {
         SetTimer(handle, TrackingTimer, 100, nullptr);
         MSG message{};
         while (GetMessageW(&message, nullptr, 0, 0) > 0) {
-            if (message.message == WM_KEYDOWN && (message.wParam == VK_ESCAPE || message.wParam == VK_F8)) {
-                PostMessageW(handle, WM_KEYDOWN, message.wParam, 0);
+            const bool closeKey = message.message == WM_KEYDOWN && message.wParam == VK_ESCAPE;
+            const bool hotkey = (message.message == WM_KEYDOWN || message.message == WM_SYSKEYDOWN) &&
+                message.wParam == 'S' && (GetKeyState(VK_MENU) & 0x8000) != 0;
+            if (message.hwnd != handle && (closeKey || hotkey)) {
+                PostMessageW(handle, WM_KEYDOWN, VK_ESCAPE, 0);
                 continue;
             }
             TranslateMessage(&message);
@@ -337,9 +340,12 @@ struct OverlayHost::Impl {
             return 0;
         }
         case WM_KEYDOWN:
-            if (wparam == VK_ESCAPE || wparam == VK_F8) { self->hideOverlay(); return 0; }
+            if (wparam == VK_ESCAPE) { self->hideOverlay(); return 0; }
             if (wparam == VK_LEFT && self->model.previousPage()) { self->detailScroll = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
             if (wparam == VK_RIGHT && self->model.nextPage()) { self->detailScroll = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
+            break;
+        case WM_SYSKEYDOWN:
+            if (wparam == 'S' && (GetKeyState(VK_MENU) & 0x8000) != 0) { self->hideOverlay(); return 0; }
             break;
         case WM_DESTROY:
             KillTimer(hwnd, TrackingTimer);

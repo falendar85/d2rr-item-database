@@ -13,7 +13,7 @@ At plugin load, `src/plugin.cpp` reads `item-database/database.json`, constructs
 overlay:
 
 1. locates and follows the D2R client window;
-2. stays hidden until the D2RLoader `Open Item Database` action (F8) is pressed;
+2. stays hidden until the D2RLoader `Open Item Database` action (Alt+S) is pressed;
 3. activates while open so its text search and dropdown controls receive normal
    keyboard and mouse input, then restores focus to D2R when closed;
 4. draws four tabs, site-matched per-tab filters, eight reusable result rows,
@@ -55,7 +55,7 @@ mods/Reimagined/d2rloader/plugins/
 
 1. Start D2RLoader with Reimagined and confirm `D2RR Item Database` appears in
    Extensions as a client plugin.
-2. Enter a game and press F8. Confirm the dark overlay appears over the D2R
+2. Enter a game and press Alt+S. Confirm the dark overlay appears over the D2R
    client without minimizing or pausing the game.
 3. Switch through Uniques, Sets, Runewords, and Bases.
 4. Type in the search box and exercise each tab's dropdowns, checkboxes, and
@@ -68,7 +68,7 @@ mods/Reimagined/d2rloader/plugins/
    scrolling stops at both ends.
 8. On Bases, verify the Normal, Exceptional, and Elite members appear as
    separate columns when the family has all three.
-9. Close with X or F8, reopen it, and repeat a page change.
+9. Close with X or Alt+S, reopen it, and repeat a page change.
 10. Check `d2rloader/logs/item-database.log` for overlay load errors.
 
 ## Current verification boundary

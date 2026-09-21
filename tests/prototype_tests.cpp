@@ -48,7 +48,11 @@ int main(int argc, char** argv) {
                 "expanded panel background invalid");
         const auto* close = findNode(layout, "CloseButton");
         require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
-        require((*close)["fields"]["rect"]["y"] == 0, "close button was not moved above the tab row");
+        require((*close)["fields"]["filename"] == "PANEL\\closebtn_4x", "native X close button missing");
+        require((*close)["fields"]["rect"]["x"] == 1900 && (*close)["fields"]["rect"]["y"] == 15, "close button is not in the upper-right corner");
+        const auto* title = findNode(layout, "Title");
+        require(title != nullptr && (*title)["fields"]["rect"]["width"] == 2000 && (*title)["fields"]["style"]["alignment"]["h"] == "center",
+                "database title is not centered across the panel");
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             const auto* button = findNode(layout, "Tab" + std::to_string(tab));
             require(button != nullptr, "tab widget missing");
@@ -59,6 +63,8 @@ int main(int argc, char** argv) {
             require(button != nullptr, "Unique row widget missing");
             require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row), "Unique row message invalid");
             require(findNode(layout, "UniqueDetail" + std::to_string(row)) != nullptr, "Unique detail widget missing");
+            const auto* detailTitle = findNode(layout, "DetailTitle" + std::to_string(row));
+            require(detailTitle != nullptr && (*detailTitle)["fields"]["style"]["alignment"]["h"] == "center", "item title is not centered");
             const auto* detailText = findNode(layout, "DetailText" + std::to_string(row));
             require(detailText != nullptr && (*detailText)["fields"]["style"]["alignment"]["v"] == "top", "detail text is not top aligned");
             require((*detailText)["fields"]["style"]["pointSize"] == "$SmallFontSize", "detail text does not use the bounded font size");

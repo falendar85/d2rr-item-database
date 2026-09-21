@@ -59,11 +59,13 @@ int main(int argc,char** argv){try{
     check(!prototype.switchTab(4)&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
     auto layout=Json::parse(buildPrototypeLayout(prototype));check(layout["type"]=="Panel"&&layout["name"]=="item-database/ItemDatabase","native panel layout root");
     const auto* background=findNode(layout,"PanelBackground");check(background!=nullptr&&(*background)["fields"]["rect"]["width"]==2000&&(*background)["fields"]["rect"]["height"]==1040,"expanded panel background");
-    const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["rect"]["y"]==0,"raised close button");
+    const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["filename"]=="PANEL\\closebtn_4x"&&(*close)["fields"]["rect"]["x"]==1900,"corner X close button");
+    const auto* title=findNode(layout,"Title");check(title!=nullptr&&(*title)["fields"]["rect"]["width"]==2000&&(*title)["fields"]["style"]["alignment"]["h"]=="center","centered database title");
     for(size_t i=0;i<4;++i){const auto* button=findNode(layout,"Tab"+std::to_string(i));check(button!=nullptr,"four tab buttons");check((*button)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/tab/"+std::string(Tabs[i]),"native tab message");}
     const auto* row=findNode(layout,"UniqueRow0");check(row!=nullptr&&findNode(layout,"UniqueRow1")==nullptr,"bounded layout rows");
     check((*row)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/select/0","native row message");
     check(findNode(layout,"UniqueDetail0")!=nullptr,"unique detail widget");
+    const auto* detailTitle=findNode(layout,"DetailTitle0");check(detailTitle!=nullptr&&(*detailTitle)["fields"]["style"]["alignment"]["h"]=="center","centered item title");
     const auto* detailText=findNode(layout,"DetailText0");check(detailText!=nullptr&&(*detailText)["fields"]["style"]["alignment"]["v"]=="top","top-aligned detail text");
     check((*detailText)["fields"]["style"]["pointSize"]=="$SmallFontSize","bounded detail font size");
     for(size_t i=1;i<4;++i)check(findNode(layout,"PlaceholderPane"+std::to_string(i))!=nullptr,"placeholder tab pane");

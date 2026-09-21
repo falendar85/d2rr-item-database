@@ -75,6 +75,21 @@ Json buttonWidget(std::string name, std::string text, Json bounds, std::string m
     }}};
 }
 
+Json closeButtonWidget(Json bounds, std::string message) {
+    return {{"type", "ButtonWidget"}, {"name", "CloseButton"}, {"fields", {
+        {"rect", std::move(bounds)}, {"filename", "PANEL\\closebtn_4x"}, {"hoveredFrame", 3},
+        {"tooltipString", "@strClose"}, {"sound", "cursor_close_window_hd"}, {"onClickMessage", std::move(message)}
+    }}};
+}
+
+Json centeredTitleStyle() {
+    return {
+        {"fontColor", "$FontColorLightGold"},
+        {"pointSize", "$LargeFontSize"},
+        {"alignment", {{"h", "center"}, {"v", "center"}}},
+    };
+}
+
 std::string detailText(const PrototypeDetail& detail) {
     std::string text;
     for (const auto& line : detail.lines) {
@@ -162,8 +177,8 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t visibleRow) const {
 
 std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     Json anchorChildren = Json::array();
-    anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 1700, 70), "$StyleSettingsTitle"));
-    anchorChildren.push_back(buttonWidget("CloseButton", "Close", rect(1460, 0, 190, 70), "PanelManager:ClosePanel:item-database/ItemDatabase"));
+    anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2000, 70), centeredTitleStyle()));
+    anchorChildren.push_back(closeButtonWidget(rect(1900, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
         anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(80 + static_cast<int>(i) * 390, 115, 360, 72),
@@ -178,7 +193,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
                                               "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row)));
         const auto detail = model.detailFor(row);
         Json detailChildren = Json::array();
-        detailChildren.push_back(textWidget("DetailTitle" + std::to_string(row), detail.title, rect(10, 0, 860, 60), "$StyleSettingsTitle"));
+        detailChildren.push_back(textWidget("DetailTitle" + std::to_string(row), detail.title, rect(10, 0, 860, 60), centeredTitleStyle()));
         detailChildren.push_back(textWidget("DetailText" + std::to_string(row), detailText(detail), rect(10, 65, 860, 610), detailTextStyle()));
         uniqueChildren.push_back({{"type", "Widget"}, {"name", "UniqueDetail" + std::to_string(row)},
                                   {"fields", {{"rect", rect(720, 55, 900, 680)}}}, {"children", std::move(detailChildren)}});

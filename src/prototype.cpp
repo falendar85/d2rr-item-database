@@ -153,17 +153,19 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t visibleRow) const {
 std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     Json anchorChildren = Json::array();
     anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 1700, 70), "$StyleSettingsTitle"));
-    anchorChildren.push_back(buttonWidget("CloseButton", "Close", rect(1460, 25, 190, 70), "item-database:close"));
+    anchorChildren.push_back(buttonWidget("CloseButton", "Close", rect(1460, 25, 190, 70), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
-        anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(80 + static_cast<int>(i) * 390, 115, 360, 72), "item-database:tab:" + std::string(Tabs[i])));
+        anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(80 + static_cast<int>(i) * 390, 115, 360, 72),
+                                              "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[i])));
     }
 
     Json uniqueChildren = Json::array();
     uniqueChildren.push_back(textWidget("UniqueCount", std::to_string(model.uniqueCount()) + " unique items loaded - first " + std::to_string(model.visibleUniqueCount()) + " shown", rect(45, 5, 650, 45)));
     for (size_t row = 0; row < model.visibleUniqueCount(); ++row) {
         const auto* record = model.uniqueAt(row);
-        uniqueChildren.push_back(buttonWidget("UniqueRow" + std::to_string(row), record->name, rect(45, 65 + static_cast<int>(row) * 78, 610, 65), "item-database:select:" + std::to_string(row)));
+        uniqueChildren.push_back(buttonWidget("UniqueRow" + std::to_string(row), record->name, rect(45, 65 + static_cast<int>(row) * 78, 610, 65),
+                                              "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row)));
         const auto detail = model.detailFor(row);
         Json detailChildren = Json::array();
         detailChildren.push_back(textWidget("DetailTitle" + std::to_string(row), detail.title, rect(10, 0, 860, 60), "$StyleSettingsTitle"));

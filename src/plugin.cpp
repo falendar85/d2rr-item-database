@@ -157,17 +157,25 @@ D2RL::ConsoleCommandResult toggleCommand(D2R::Game::Client*, const D2RL::Console
 
 D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* plugin, const D2RL::SharedEvents::UiMessageEvent* event) {
     if (plugin == nullptr || event == nullptr || event->structSize < D2RL::SharedEvents::UiMessageEventRequiredSize ||
-        event->target == nullptr || event->command == nullptr || std::strcmp(event->target, "item-database") != 0) {
+        event->target == nullptr || event->command == nullptr || std::strcmp(event->target, "PanelManager") != 0 ||
+        std::strcmp(event->command, "ClosePanel") != 0 || event->text == nullptr) {
         return D2RL::SharedEvents::UiMessageAction::Continue;
     }
-    if (std::strcmp(event->command, "close") == 0) {
+    if (std::strcmp(event->text, "item-database/ItemDatabase") == 0) {
         closePanel();
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }
-    if (event->text == nullptr || model == nullptr) return D2RL::SharedEvents::UiMessageAction::Consume;
-    if (std::strcmp(event->command, "tab") == 0) {
+    constexpr char ActionPrefix[] = "item-database/action/";
+    if (std::strncmp(event->text, ActionPrefix, sizeof(ActionPrefix) - 1) != 0) {
+        return D2RL::SharedEvents::UiMessageAction::Continue;
+    }
+    if (model == nullptr) return D2RL::SharedEvents::UiMessageAction::Consume;
+    const char* action = event->text + sizeof(ActionPrefix) - 1;
+    constexpr char TabPrefix[] = "tab/";
+    if (std::strncmp(action, TabPrefix, sizeof(TabPrefix) - 1) == 0) {
+        const char* tabName = action + sizeof(TabPrefix) - 1;
         size_t tab = itemdb::Tabs.size();
-        for (size_t i = 0; i < itemdb::Tabs.size(); ++i) if (std::strcmp(event->text, itemdb::Tabs[i]) == 0) tab = i;
+        for (size_t i = 0; i < itemdb::Tabs.size(); ++i) if (std::strcmp(tabName, itemdb::Tabs[i]) == 0) tab = i;
         if (!model->switchTab(tab)) {
             plugin->LogWarn("Item Database ignored an invalid tab message");
             return D2RL::SharedEvents::UiMessageAction::Consume;
@@ -177,10 +185,12 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         if (!applyView()) plugin->LogError("Item Database UI initialization failed while changing tabs");
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }
-    if (std::strcmp(event->command, "select") == 0) {
+    constexpr char SelectPrefix[] = "select/";
+    if (std::strncmp(action, SelectPrefix, sizeof(SelectPrefix) - 1) == 0) {
+        const char* rowText = action + sizeof(SelectPrefix) - 1;
         size_t row = 0;
-        const char* end = event->text + std::strlen(event->text);
-        auto parsed = std::from_chars(event->text, end, row);
+        const char* end = rowText + std::strlen(rowText);
+        auto parsed = std::from_chars(rowText, end, row);
         if (parsed.ec != std::errc{} || parsed.ptr != end || !model->selectUnique(row)) {
             plugin->LogWarn("Item Database ignored an invalid Unique selection");
             return D2RL::SharedEvents::UiMessageAction::Consume;

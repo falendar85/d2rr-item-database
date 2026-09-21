@@ -43,9 +43,17 @@ int main(int argc, char** argv) {
         require(layoutText.size() < 1024 * 1024, "prototype layout unexpectedly large");
         const auto layout = Json::parse(layoutText);
         require(layout["type"] == "Panel" && layout["name"] == "item-database/ItemDatabase", "panel root invalid");
-        for (size_t tab = 0; tab < Tabs.size(); ++tab) require(findNode(layout, "Tab" + std::to_string(tab)) != nullptr, "tab widget missing");
+        const auto* close = findNode(layout, "CloseButton");
+        require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
+        for (size_t tab = 0; tab < Tabs.size(); ++tab) {
+            const auto* button = findNode(layout, "Tab" + std::to_string(tab));
+            require(button != nullptr, "tab widget missing");
+            require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[tab]), "tab message invalid");
+        }
         for (size_t row = 0; row < PrototypePageSize; ++row) {
-            require(findNode(layout, "UniqueRow" + std::to_string(row)) != nullptr, "Unique row widget missing");
+            const auto* button = findNode(layout, "UniqueRow" + std::to_string(row));
+            require(button != nullptr, "Unique row widget missing");
+            require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row), "Unique row message invalid");
             require(findNode(layout, "UniqueDetail" + std::to_string(row)) != nullptr, "Unique detail widget missing");
         }
         require(findNode(layout, "UniqueRow8") == nullptr, "prototype rendered too many rows");

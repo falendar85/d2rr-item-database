@@ -1,0 +1,1460 @@
+[
+  {
+    "id": "all_resistances",
+    "label": "All Resistances",
+    "numeric": true,
+    "source_keys": [
+      "strModAllResistances"
+    ]
+  },
+  {
+    "id": "all_skills",
+    "label": "All Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3k"
+    ]
+  },
+  {
+    "id": "allelemskilldmg",
+    "label": "%+d%% to All Elemental Skill Damage",
+    "numeric": true,
+    "source_keys": [
+      "allelemskilldmg"
+    ]
+  },
+  {
+    "id": "attack_rating",
+    "label": "Attack Rating",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1h"
+    ]
+  },
+  {
+    "id": "attack_rating_percent",
+    "label": "Attack Rating Percent",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4c"
+    ]
+  },
+  {
+    "id": "aura",
+    "label": "Aura",
+    "numeric": true,
+    "source_keys": [
+      "ModitemAura"
+    ]
+  },
+  {
+    "id": "cannot_be_frozen",
+    "label": "Cannot Be Frozen",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5z"
+    ]
+  },
+  {
+    "id": "chance_to_cast",
+    "label": "%d%% Chance to cast level %d %s when struck",
+    "numeric": false,
+    "source_keys": [
+      "ItemExpansiveChanc2",
+      "ModitemskonKill",
+      "ItemExpansiveChanc1",
+      "ModitemskonLevel",
+      "Moditemskondeath",
+      "ItemExpansiveChancX"
+    ]
+  },
+  {
+    "id": "class_skills",
+    "label": "Class Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3c",
+      "ModStr3d",
+      "ModStre8b",
+      "ModStr3e",
+      "ModStr3a",
+      "ModStr3b",
+      "ModStre8a"
+    ]
+  },
+  {
+    "id": "cold_damage",
+    "label": "Cold Damage",
+    "numeric": false,
+    "source_keys": [
+      "strModColdDamageRange"
+    ]
+  },
+  {
+    "id": "cold_resistance",
+    "label": "Cold Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1k"
+    ]
+  },
+  {
+    "id": "cold_skill_damage",
+    "label": "Cold Skill Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModitemdamColdsk"
+    ]
+  },
+  {
+    "id": "crushing_blow",
+    "label": "Crushing Blow",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5c"
+    ]
+  },
+  {
+    "id": "damage_to_demons",
+    "label": "Damage To Demons",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4e"
+    ]
+  },
+  {
+    "id": "damage_to_undead",
+    "label": "Damage To Undead",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4f"
+    ]
+  },
+  {
+    "id": "deadly_strike",
+    "label": "Deadly Strike",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5q"
+    ]
+  },
+  {
+    "id": "defense",
+    "label": "Defense",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1i"
+    ]
+  },
+  {
+    "id": "dexterity",
+    "label": "Dexterity",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1b"
+    ]
+  },
+  {
+    "id": "enemy_cold_resistance_reduction",
+    "label": "Enemy Cold Resistance Reduction",
+    "numeric": true,
+    "source_keys": [
+      "Moditemenrescoldsk"
+    ]
+  },
+  {
+    "id": "enemy_fire_resistance_reduction",
+    "label": "Enemy Fire Resistance Reduction",
+    "numeric": true,
+    "source_keys": [
+      "Moditemenresfiresk"
+    ]
+  },
+  {
+    "id": "enemy_lightning_resistance_reduction",
+    "label": "Enemy Lightning Resistance Reduction",
+    "numeric": true,
+    "source_keys": [
+      "Moditemenresltngsk"
+    ]
+  },
+  {
+    "id": "enemy_poison_resistance_reduction",
+    "label": "Enemy Poison Resistance Reduction",
+    "numeric": true,
+    "source_keys": [
+      "Moditemenrespoissk"
+    ]
+  },
+  {
+    "id": "energy",
+    "label": "Energy",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1d"
+    ]
+  },
+  {
+    "id": "enhanced_defense",
+    "label": "Enhanced Defense",
+    "numeric": true,
+    "source_keys": [
+      "Modstr2v"
+    ]
+  },
+  {
+    "id": "enhanced_weapon_damage",
+    "label": "Enhanced Weapon Damage",
+    "numeric": true,
+    "source_keys": [
+      "strModEnhancedDamage"
+    ]
+  },
+  {
+    "id": "extra_grizzly_bears",
+    "label": "%+d to Max Grizzly Bears",
+    "numeric": true,
+    "source_keys": [
+      "extra_grizzly_bears"
+    ]
+  },
+  {
+    "id": "extra_skele_mages",
+    "label": "%+d to Max Skeletal Mages",
+    "numeric": true,
+    "source_keys": [
+      "extra_skele_mages"
+    ]
+  },
+  {
+    "id": "extra_skele_warriors",
+    "label": "%+d to Max Skeleton Warriors",
+    "numeric": true,
+    "source_keys": [
+      "extra_skele_warriors"
+    ]
+  },
+  {
+    "id": "extrafiregolems",
+    "label": "%+d to Max Fire Golems",
+    "numeric": true,
+    "source_keys": [
+      "extrafiregolems"
+    ]
+  },
+  {
+    "id": "extraholybolt",
+    "label": "%+d Holy Bolt Projectiles",
+    "numeric": true,
+    "source_keys": [
+      "extraholybolt"
+    ]
+  },
+  {
+    "id": "extraravens",
+    "label": "%+d to Max Ravens",
+    "numeric": true,
+    "source_keys": [
+      "extraravens"
+    ]
+  },
+  {
+    "id": "extrasdirewolves",
+    "label": "%+d to Max Dire Wolves",
+    "numeric": true,
+    "source_keys": [
+      "extrasdirewolves"
+    ]
+  },
+  {
+    "id": "extrashadowmasters",
+    "label": "%+d to Max Shadow Masters",
+    "numeric": true,
+    "source_keys": [
+      "extraShadowMasters"
+    ]
+  },
+  {
+    "id": "extraspear",
+    "label": "%+d Bone Spear Projectiles",
+    "numeric": true,
+    "source_keys": [
+      "extraspear"
+    ]
+  },
+  {
+    "id": "extraspiritwolves",
+    "label": "%+d to Max Spirit Wolves",
+    "numeric": true,
+    "source_keys": [
+      "extraspiritwolves"
+    ]
+  },
+  {
+    "id": "extratraps",
+    "label": "%+d to Max Traps",
+    "numeric": true,
+    "source_keys": [
+      "extratraps"
+    ]
+  },
+  {
+    "id": "fadedescription",
+    "label": "You feel incorporeal...",
+    "numeric": true,
+    "source_keys": [
+      "fadeDescription"
+    ]
+  },
+  {
+    "id": "fcr",
+    "label": "Fcr",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4v"
+    ]
+  },
+  {
+    "id": "fhr",
+    "label": "Fhr",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4p"
+    ]
+  },
+  {
+    "id": "fire_damage",
+    "label": "Fire Damage",
+    "numeric": false,
+    "source_keys": [
+      "strModFireDamageRange"
+    ]
+  },
+  {
+    "id": "fire_resistance",
+    "label": "Fire Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1j"
+    ]
+  },
+  {
+    "id": "fire_skill_damage",
+    "label": "Fire Skill Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModitemdamFiresk"
+    ]
+  },
+  {
+    "id": "frw",
+    "label": "Frw",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4s"
+    ]
+  },
+  {
+    "id": "grizzlycap",
+    "label": "Max Grizzly Bears capped to 1",
+    "numeric": false,
+    "source_keys": [
+      "grizzlycap"
+    ]
+  },
+  {
+    "id": "healperhit",
+    "label": "Life Per Hit",
+    "numeric": false,
+    "source_keys": [
+      "healperhit"
+    ]
+  },
+  {
+    "id": "ias",
+    "label": "Ias",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4m"
+    ]
+  },
+  {
+    "id": "ignore_target_defense",
+    "label": "Ignore Target Defense",
+    "numeric": false,
+    "source_keys": [
+      "ModStr3y"
+    ]
+  },
+  {
+    "id": "itemstats2p",
+    "label": "%+d to Required Level",
+    "numeric": true,
+    "source_keys": [
+      "ItemStats2p"
+    ]
+  },
+  {
+    "id": "life",
+    "label": "Life",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1u"
+    ]
+  },
+  {
+    "id": "life_leech",
+    "label": "Life Leech",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2z"
+    ]
+  },
+  {
+    "id": "lightning_damage",
+    "label": "Lightning Damage",
+    "numeric": false,
+    "source_keys": [
+      "strModLightningDamageRange"
+    ]
+  },
+  {
+    "id": "lightning_resistance",
+    "label": "Lightning Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1l"
+    ]
+  },
+  {
+    "id": "lightning_skill_damage",
+    "label": "Lightning Skill Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModitemdamLtngsk"
+    ]
+  },
+  {
+    "id": "magic_damage_reduction",
+    "label": "Magic Damage Reduction",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2t"
+    ]
+  },
+  {
+    "id": "magic_find",
+    "label": "Magic Find",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1x"
+    ]
+  },
+  {
+    "id": "magic_resistance",
+    "label": "Magic Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1m"
+    ]
+  },
+  {
+    "id": "mana",
+    "label": "Mana",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1e"
+    ]
+  },
+  {
+    "id": "mana_leech",
+    "label": "Mana Leech",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2y"
+    ]
+  },
+  {
+    "id": "mod_weight",
+    "label": "Charm Weight: %d",
+    "numeric": true,
+    "source_keys": [
+      "mod_weight"
+    ]
+  },
+  {
+    "id": "modattdexpercent",
+    "label": "%+d%% to Dexterity",
+    "numeric": true,
+    "source_keys": [
+      "ModAttDexPercent"
+    ]
+  },
+  {
+    "id": "modattenrpercent",
+    "label": "%+d%% to Energy",
+    "numeric": true,
+    "source_keys": [
+      "ModAttEnrPercent"
+    ]
+  },
+  {
+    "id": "modattstrpercent",
+    "label": "%+d%% to Strength",
+    "numeric": true,
+    "source_keys": [
+      "ModAttStrPercent"
+    ]
+  },
+  {
+    "id": "modattvitpercent",
+    "label": "%+d%% to Vitality",
+    "numeric": true,
+    "source_keys": [
+      "ModAttVitPercent"
+    ]
+  },
+  {
+    "id": "moditem2allattrib",
+    "label": "%+d to all Attributes",
+    "numeric": true,
+    "source_keys": [
+      "Moditem2allattrib"
+    ]
+  },
+  {
+    "id": "moditem2expg",
+    "label": "%+d%% to Experience Gained",
+    "numeric": true,
+    "source_keys": [
+      "Moditem2ExpG"
+    ]
+  },
+  {
+    "id": "moditemhpak",
+    "label": "%+d Life after each Kill",
+    "numeric": true,
+    "source_keys": [
+      "ModitemHPaK"
+    ]
+  },
+  {
+    "id": "moditemmoncoldsunder",
+    "label": "Monster Cold Immunity is Sundered",
+    "numeric": false,
+    "source_keys": [
+      "ModItemMonColdSunder"
+    ]
+  },
+  {
+    "id": "moditemmonfiresunder",
+    "label": "Monster Fire Immunity is Sundered",
+    "numeric": false,
+    "source_keys": [
+      "ModItemMonFireSunder"
+    ]
+  },
+  {
+    "id": "moditemmonlightsunder",
+    "label": "Monster Lightning Immunity is Sundered",
+    "numeric": false,
+    "source_keys": [
+      "ModItemMonLightSunder"
+    ]
+  },
+  {
+    "id": "moditemmonmagicsunder",
+    "label": "Monster Magic Immunity is Sundered",
+    "numeric": false,
+    "source_keys": [
+      "ModItemMonMagicSunder"
+    ]
+  },
+  {
+    "id": "moditemmonphysicalsunder",
+    "label": "Monster Physical Immunity is Sundered",
+    "numeric": false,
+    "source_keys": [
+      "ModItemMonPhysicalSunder"
+    ]
+  },
+  {
+    "id": "moditemmonpoisonsunder",
+    "label": "Monster Poison Immunity is Sundered",
+    "numeric": false,
+    "source_keys": [
+      "ModItemMonPoisonSunder"
+    ]
+  },
+  {
+    "id": "moditemreanimas",
+    "label": "%0%% Reanimate as: %1",
+    "numeric": false,
+    "source_keys": [
+      "Moditemreanimas"
+    ]
+  },
+  {
+    "id": "moditemredvendp",
+    "label": "Vendor Prices Reduced By %d%%",
+    "numeric": true,
+    "source_keys": [
+      "ModitemRedVendP"
+    ]
+  },
+  {
+    "id": "moditemsmrip",
+    "label": "Slain Monsters Rest in Peace",
+    "numeric": false,
+    "source_keys": [
+      "ModitemSMRIP"
+    ]
+  },
+  {
+    "id": "modstr1f",
+    "label": "%+d to Maximum Weapon Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1f"
+    ]
+  },
+  {
+    "id": "modstr1g",
+    "label": "%+d to Minimum Weapon Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1g"
+    ]
+  },
+  {
+    "id": "modstr1o",
+    "label": "%+d to Weapon Maximum Fire Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1o"
+    ]
+  },
+  {
+    "id": "modstr1p",
+    "label": "%+d to Weapon Minimum Fire Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1p"
+    ]
+  },
+  {
+    "id": "modstr1q",
+    "label": "%+d to Weapon Maximum Lightning Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1q"
+    ]
+  },
+  {
+    "id": "modstr1s",
+    "label": "%+d to Weapon Maximum Cold Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1s"
+    ]
+  },
+  {
+    "id": "modstr1v",
+    "label": "Attacker Takes Damage of %d",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1v"
+    ]
+  },
+  {
+    "id": "modstr1w",
+    "label": "%+d%% Extra Gold from Monsters",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1w"
+    ]
+  },
+  {
+    "id": "modstr1y",
+    "label": "Knockback",
+    "numeric": false,
+    "source_keys": [
+      "ModStr1y"
+    ]
+  },
+  {
+    "id": "modstr2g",
+    "label": "%+d%% Increased Maximum Life",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2g"
+    ]
+  },
+  {
+    "id": "modstr2h",
+    "label": "%+d%% Increased Maximum Mana",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2h"
+    ]
+  },
+  {
+    "id": "modstr2i",
+    "label": "%+d%% Increased Maximum Durability",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2i"
+    ]
+  },
+  {
+    "id": "modstr2j",
+    "label": "%+d%% Enhanced Maximum Weapon Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2j"
+    ]
+  },
+  {
+    "id": "modstr2l",
+    "label": "Replenish %+d Life per 10 Seconds",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2l"
+    ]
+  },
+  {
+    "id": "modstr2w",
+    "label": "Drain %d Life per 10 Seconds",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2w"
+    ]
+  },
+  {
+    "id": "modstr3f",
+    "label": "%+d to Light Radius",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3f"
+    ]
+  },
+  {
+    "id": "modstr3g",
+    "label": "%d%% Increased Chance of Blocking",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3g"
+    ]
+  },
+  {
+    "id": "modstr3h",
+    "label": "Requirements Reduced By %d%%",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3h"
+    ]
+  },
+  {
+    "id": "modstr3h2",
+    "label": "Requirements Increased By %d%%",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3h2"
+    ]
+  },
+  {
+    "id": "modstr3i",
+    "label": "%+d to Fire Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3i"
+    ]
+  },
+  {
+    "id": "modstr3j",
+    "label": "Attacker Takes Lightning Damage of %d",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3j"
+    ]
+  },
+  {
+    "id": "modstr3l",
+    "label": "Freezes target",
+    "numeric": false,
+    "source_keys": [
+      "ModStr3l"
+    ]
+  },
+  {
+    "id": "modstr3r",
+    "label": "Poison Length Reduced by %d%%",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3r"
+    ]
+  },
+  {
+    "id": "modstr3u",
+    "label": "%+d%% Hits Cause Monsters to Flee",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3u"
+    ]
+  },
+  {
+    "id": "modstr3v",
+    "label": "Heal Stamina Plus %d%%",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3v"
+    ]
+  },
+  {
+    "id": "modstr3w",
+    "label": "%+d%% Damage Taken Added To Mana",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3w"
+    ]
+  },
+  {
+    "id": "modstr4a",
+    "label": "Prevent Monster Heal",
+    "numeric": false,
+    "source_keys": [
+      "ModStr4a"
+    ]
+  },
+  {
+    "id": "modstr4b",
+    "label": "Half Freeze Duration",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4b"
+    ]
+  },
+  {
+    "id": "modstr4d",
+    "label": "%d to Monster Defense Per Hit",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4d"
+    ]
+  },
+  {
+    "id": "modstr4g",
+    "label": "%+d%% Mana Regeneration",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4g"
+    ]
+  },
+  {
+    "id": "modstr4h",
+    "label": "%+d to Weapon Maximum Poison Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4h"
+    ]
+  },
+  {
+    "id": "modstr4j",
+    "label": "%+d to Attack Rating against Demons",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4j"
+    ]
+  },
+  {
+    "id": "modstr4k",
+    "label": "%+d to Attack Rating against Undead",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4k"
+    ]
+  },
+  {
+    "id": "modstr4y",
+    "label": "%+d%% Faster Block Rate",
+    "numeric": true,
+    "source_keys": [
+      "ModStr4y"
+    ]
+  },
+  {
+    "id": "modstr5b",
+    "label": "%+d Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5b"
+    ]
+  },
+  {
+    "id": "modstr5e",
+    "label": "%+d Kick Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5e"
+    ]
+  },
+  {
+    "id": "modstr5f",
+    "label": "%+d Mana after each Kill",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5f"
+    ]
+  },
+  {
+    "id": "modstr5g",
+    "label": "%+d%% Fire Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5g"
+    ]
+  },
+  {
+    "id": "modstr5h",
+    "label": "%+d Fire Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5h"
+    ]
+  },
+  {
+    "id": "modstr5i",
+    "label": "%+d%% Lightning Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5i"
+    ]
+  },
+  {
+    "id": "modstr5j",
+    "label": "%+d Lightning Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5j"
+    ]
+  },
+  {
+    "id": "modstr5k",
+    "label": "%+d%% Magic Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5k"
+    ]
+  },
+  {
+    "id": "modstr5l",
+    "label": "%+d Magic Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5l"
+    ]
+  },
+  {
+    "id": "modstr5m",
+    "label": "%+d%% Cold Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5m"
+    ]
+  },
+  {
+    "id": "modstr5n",
+    "label": "%+d Cold Damage Absorbed",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5n"
+    ]
+  },
+  {
+    "id": "modstr5r",
+    "label": "Slows Target by %d%%",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5r"
+    ]
+  },
+  {
+    "id": "modstr5u",
+    "label": "%+d%% to Maximum Fire Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5u"
+    ]
+  },
+  {
+    "id": "modstr5v",
+    "label": "%+d%% to Maximum Cold Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5v"
+    ]
+  },
+  {
+    "id": "modstr5w",
+    "label": "%+d%% to Maximum Lightning Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5w"
+    ]
+  },
+  {
+    "id": "modstr5y",
+    "label": "%+d%% to Maximum Poison Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5y"
+    ]
+  },
+  {
+    "id": "modstr6a",
+    "label": "%+d Defense vs. Missile",
+    "numeric": true,
+    "source_keys": [
+      "ModStr6a"
+    ]
+  },
+  {
+    "id": "modstr6b",
+    "label": "%+d Defense vs. Melee",
+    "numeric": true,
+    "source_keys": [
+      "ModStr6b"
+    ]
+  },
+  {
+    "id": "modstr6c",
+    "label": "%+d Life after each Demon Kill",
+    "numeric": true,
+    "source_keys": [
+      "ModStr6c"
+    ]
+  },
+  {
+    "id": "modstr6d",
+    "label": "Hit Blinds Target",
+    "numeric": false,
+    "source_keys": [
+      "ModStr6d"
+    ]
+  },
+  {
+    "id": "modstr6g",
+    "label": "%+d%% Piercing Attack",
+    "numeric": true,
+    "source_keys": [
+      "ModStr6g"
+    ]
+  },
+  {
+    "id": "modstr6h",
+    "label": "Fires Magic Arrows",
+    "numeric": false,
+    "source_keys": [
+      "ModStr6h"
+    ]
+  },
+  {
+    "id": "modstr6i",
+    "label": "Fires Explosive Arrows or Bolts",
+    "numeric": false,
+    "source_keys": [
+      "ModStr6i"
+    ]
+  },
+  {
+    "id": "modstr6k",
+    "label": "%+d%% chance for finishing moves to not consume charges",
+    "numeric": true,
+    "source_keys": [
+      "ModStr6k"
+    ]
+  },
+  {
+    "id": "modstrallmaxres",
+    "label": "%+d%% to All Maximum Resistances",
+    "numeric": true,
+    "source_keys": [
+      "ModStrAllMaxRes"
+    ]
+  },
+  {
+    "id": "modstrcoldskill",
+    "label": "%+d to Cold Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStrcoldskill"
+    ]
+  },
+  {
+    "id": "modstrdampierce",
+    "label": "-%d%% to Enemy Physical Damage Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStrDamPierce"
+    ]
+  },
+  {
+    "id": "modstre9i",
+    "label": "Increased Stack Size",
+    "numeric": false,
+    "source_keys": [
+      "ModStre9i"
+    ]
+  },
+  {
+    "id": "modstre9o",
+    "label": "Absorbs %d Fire Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStre9o"
+    ]
+  },
+  {
+    "id": "modstre9p",
+    "label": "Absorbs %d Cold Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStre9p"
+    ]
+  },
+  {
+    "id": "modstre9q",
+    "label": "Absorbs %d Lightning Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStre9q"
+    ]
+  },
+  {
+    "id": "modstre9s",
+    "label": "Indestructible",
+    "numeric": false,
+    "source_keys": [
+      "ModStre9s"
+    ]
+  },
+  {
+    "id": "modstre9u",
+    "label": "Repairs %d durability in %d seconds",
+    "numeric": false,
+    "source_keys": [
+      "ModStre9u"
+    ]
+  },
+  {
+    "id": "modstre9v",
+    "label": "Replenishes quantity",
+    "numeric": true,
+    "source_keys": [
+      "ModStre9v"
+    ]
+  },
+  {
+    "id": "modstrge9",
+    "label": "+%d to Warlock Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStrge9"
+    ]
+  },
+  {
+    "id": "modstrlightningskill",
+    "label": "%+d to Lightning Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStrlightningskill"
+    ]
+  },
+  {
+    "id": "modstrmagicskill",
+    "label": "%+d to Magic Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStrmagicskill"
+    ]
+  },
+  {
+    "id": "modstrmagmastery",
+    "label": "%+d%% to Magic Skill Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStrMagMastery"
+    ]
+  },
+  {
+    "id": "modstrmagpierce",
+    "label": "-%d%% to Enemy Magic Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStrMagPierce"
+    ]
+  },
+  {
+    "id": "modstrplayermindmgpercent",
+    "label": "%+d%% Extra Minimum Weapon Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModStrPlayerMinDmgPercent"
+    ]
+  },
+  {
+    "id": "modstrpoisonskill",
+    "label": "%+d to Poison Skills",
+    "numeric": true,
+    "source_keys": [
+      "ModStrpoisonskill"
+    ]
+  },
+  {
+    "id": "open_wounds",
+    "label": "Open Wounds",
+    "numeric": true,
+    "source_keys": [
+      "ModStr3m"
+    ]
+  },
+  {
+    "id": "oskill",
+    "label": "Oskill",
+    "numeric": true,
+    "source_keys": [
+      "ItemModifierNonClassSkill"
+    ]
+  },
+  {
+    "id": "penetrateelepen",
+    "label": "-%d%% to All Enemy Elemental Resistances",
+    "numeric": true,
+    "source_keys": [
+      "PenetrateElePen"
+    ]
+  },
+  {
+    "id": "physical_damage",
+    "label": "Physical Damage",
+    "numeric": false,
+    "source_keys": [
+      "strModMinDamageRange"
+    ]
+  },
+  {
+    "id": "physical_damage_reduction",
+    "label": "Physical Damage Reduction",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2uPercent"
+    ]
+  },
+  {
+    "id": "physical_damage_reduction_flat",
+    "label": "Physical Damage Reduction Flat",
+    "numeric": true,
+    "source_keys": [
+      "ModStr2u"
+    ]
+  },
+  {
+    "id": "poison_damage",
+    "label": "Poison Damage",
+    "numeric": false,
+    "source_keys": [
+      "strModPoisonDamageRange"
+    ]
+  },
+  {
+    "id": "poison_resistance",
+    "label": "Poison Resistance",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1n"
+    ]
+  },
+  {
+    "id": "poison_skill_damage",
+    "label": "Poison Skill Damage",
+    "numeric": true,
+    "source_keys": [
+      "ModitemdamPoissk"
+    ]
+  },
+  {
+    "id": "ravendmg",
+    "label": "+50%% to Raven Damage",
+    "numeric": false,
+    "source_keys": [
+      "ravendmg"
+    ]
+  },
+  {
+    "id": "ravenhits",
+    "label": "%+d to Raven Hits",
+    "numeric": true,
+    "source_keys": [
+      "ravenhits"
+    ]
+  },
+  {
+    "id": "ravensetwolf",
+    "label": "+ Max Ravens, - Max Wolves",
+    "numeric": false,
+    "source_keys": [
+      "ravensetwolf"
+    ]
+  },
+  {
+    "id": "res-curse-len",
+    "label": "res-curse-len",
+    "numeric": false,
+    "source_keys": [
+      "res-curse-len"
+    ]
+  },
+  {
+    "id": "skill_tree",
+    "label": "%+d to Cold Skills",
+    "numeric": true,
+    "source_keys": [
+      "StrSklTabItem13",
+      "StrSklTabItem11",
+      "StrSklTabItem5",
+      "StrSklTabItem8",
+      "StrSklTabItem16",
+      "StrSklTabItem19",
+      "StrSklTabItem20",
+      "StrSklTabItem4",
+      "StrSklTabItem1",
+      "StrSklTabItem14",
+      "StrSklTabItem15",
+      "StrSklTabItem17",
+      "StrSklTabItem21",
+      "StrSklTabItem2",
+      "StrSklTabItem7",
+      "StrSklTabItem3",
+      "StrSklTabItem9",
+      "StrSklTabItem12",
+      "StrSklTabItem10",
+      "StrSklTabItem23",
+      "StrSklTabItem22",
+      "StrSklTabItem6",
+      "StrSklTabItem18",
+      "StrSklTabItem24"
+    ]
+  },
+  {
+    "id": "sockets",
+    "label": "Sockets",
+    "numeric": true,
+    "source_keys": [
+      "strSocketedCount"
+    ]
+  },
+  {
+    "id": "splash1",
+    "label": "Splash 50%% of Melee Damage",
+    "numeric": false,
+    "source_keys": [
+      "splash1"
+    ]
+  },
+  {
+    "id": "splash3",
+    "label": "Splash 100%% of Melee Damage",
+    "numeric": false,
+    "source_keys": [
+      "splash3"
+    ]
+  },
+  {
+    "id": "strdamagemergedrange",
+    "label": "Adds %d-%d to %d-%d Damage",
+    "numeric": false,
+    "source_keys": [
+      "strDamageMergedRange"
+    ]
+  },
+  {
+    "id": "strength",
+    "label": "Strength",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1a"
+    ]
+  },
+  {
+    "id": "strethereal",
+    "label": "Ethereal (Cannot be Repaired)",
+    "numeric": false,
+    "source_keys": [
+      "strethereal"
+    ]
+  },
+  {
+    "id": "strmodmagicdamagerange",
+    "label": "Adds %d-%d Weapon Magic Damage",
+    "numeric": false,
+    "source_keys": [
+      "strModMagicDamageRange"
+    ]
+  },
+  {
+    "id": "strskillcharges",
+    "label": "Level %d %s (%d/%d Charges)",
+    "numeric": false,
+    "source_keys": [
+      "strSkillCharges"
+    ]
+  },
+  {
+    "id": "strskillrandom",
+    "label": "+%d to (Random Class) Skill Levels",
+    "numeric": true,
+    "source_keys": [
+      "strSkillRandom"
+    ]
+  },
+  {
+    "id": "strskillrandomclass",
+    "label": "+%d Random %s Skill",
+    "numeric": true,
+    "source_keys": [
+      "strSkillRandomClass"
+    ]
+  },
+  {
+    "id": "strskillrandomfromskillclass",
+    "label": "+%d to %s %s",
+    "numeric": true,
+    "source_keys": [
+      "strSkillRandomFromSkillClass"
+    ]
+  },
+  {
+    "id": "strskilltabrandomclassonly",
+    "label": "+%d Random Skill Tab",
+    "numeric": true,
+    "source_keys": [
+      "strSkillTabRandomClassOnly"
+    ]
+  },
+  {
+    "id": "target_defense_reduction",
+    "label": "Target Defense Reduction",
+    "numeric": true,
+    "source_keys": [
+      "ModStr5o"
+    ]
+  },
+  {
+    "id": "vitality",
+    "label": "Vitality",
+    "numeric": true,
+    "source_keys": [
+      "ModStr1c"
+    ]
+  }
+]

@@ -57,15 +57,16 @@ int main(int argc, char** argv) {
         const auto layout = Json::parse(layoutText);
         require(layout["type"] == "Panel" && layout["name"] == "item-database/ItemDatabase", "panel root invalid");
         const auto* background = findNode(layout, "PanelBackground");
-        require(background != nullptr && (*background)["fields"]["rect"]["width"] == 2240 && (*background)["fields"]["rect"]["height"] == 1120,
+        require(background != nullptr && (*background)["fields"]["rect"]["width"] == 2688 && (*background)["fields"]["rect"]["height"] == 1240 &&
+                (*background)["fields"]["color"] == Json::array({0.0, 0.0, 0.0, 0.98}),
                 "expanded panel background invalid");
         const auto* close = findNode(layout, "CloseButton");
         require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
         require((*close)["fields"]["filename"] == "PANEL\\closebtn_4x", "native X close button missing");
         require((*close)["fields"]["tooltipString"] == "@d2r:strClose", "close tooltip is not game-namespaced");
-        require((*close)["fields"]["rect"]["x"] == 2140 && (*close)["fields"]["rect"]["y"] == 15, "close button is not in the upper-right corner");
+        require((*close)["fields"]["rect"]["x"] == 2588 && (*close)["fields"]["rect"]["y"] == 15, "close button is not in the upper-right corner");
         const auto* title = findNode(layout, "Title");
-        require(title != nullptr && (*title)["fields"]["rect"]["width"] == 2240 && (*title)["fields"]["style"]["alignment"]["h"] == "center",
+        require(title != nullptr && (*title)["fields"]["rect"]["width"] == 2688 && (*title)["fields"]["style"]["alignment"]["h"] == "center",
                 "database title is not centered across the panel");
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             const auto* button = findNode(layout, "Tab" + std::to_string(tab));
@@ -87,7 +88,9 @@ int main(int argc, char** argv) {
                 require(findNode(layout, "Detail" + suffix) != nullptr, "tab detail widget missing");
                 if (tab == 1) {
                     require(findNode(layout, "SetDetailTitle" + suffix) != nullptr, "set title missing");
-                    require(findNode(layout, "SetScrollController" + suffix) != nullptr, "set scrollbar missing");
+                    const auto* scroll = findNode(layout, "SetScrollController" + suffix);
+                    require(scroll != nullptr && (*scroll)["fields"]["rect"]["height"] == 820, "bounded set scrollbar missing");
+                    require(findNode(layout, "SetScrollTrack" + suffix) != nullptr, "bounded set scroll track missing");
                     require(findNode(layout, "SetScrollView" + suffix) != nullptr, "set scroll view missing");
                     const auto* setText = findNode(layout, "SetDetailText" + suffix);
                     require(setText != nullptr && (*setText)["fields"]["text"].get<std::string>().find("SET BONUSES") != std::string::npos,
@@ -96,6 +99,7 @@ int main(int argc, char** argv) {
                     require(findNode(layout, "BaseTitle" + suffix + "_0") != nullptr, "base family title missing");
                     const auto* baseText = findNode(layout, "BaseText" + suffix + "_0");
                     require(baseText != nullptr, "base family detail missing");
+                    require((*baseText)["fields"]["rect"]["width"] == 500, "base family columns were not widened");
                     require((*baseText)["fields"]["text"].get<std::string>().find("Automagic") == std::string::npos,
                             "base family detail still includes automagic overflow");
                 } else {

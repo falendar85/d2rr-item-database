@@ -173,26 +173,26 @@ std::vector<std::string> setLines(const PrototypeViewModel& model, size_t row) {
 
 Json scrollDetail(std::string suffix, std::string title, const std::vector<std::string>& lines) {
     const std::string viewName = "SetScrollView" + suffix;
+    const int contentHeight = std::max(840, static_cast<int>(lines.size()) * 34);
     Json content = Json::array();
     content.push_back(textWidget("SetDetailText" + suffix, [&] {
         std::string text;
         for (const auto& line : lines) { if (!text.empty()) text += "\n"; text += line; }
         return text;
-    }(), rect(0, 0, 1260, std::max(720, static_cast<int>(lines.size()) * 34)), compactDetailTextStyle()));
+    }(), rect(0, 0, 1540, contentHeight), compactDetailTextStyle()));
     Json children = Json::array();
-    children.push_back(textWidget("SetDetailTitle" + suffix, std::move(title), rect(0, 0, 1320, 60), centeredTitleStyle()));
-    children.push_back({{"type", "ImageWidget"}, {"name", "SetScrollBackground" + suffix}, {"fields", {
-        {"rect", rect(1280, 70, 70, 700)}, {"filename", "PauseMenu\\VerticalScroll"}}}, {"children", Json::array({
-            {{"type", "ScrollControllerWidget"}, {"name", "SetScrollController" + suffix}, {"fields", {
-                {"rect", rect(18, 12, 34, 675)}, {"upArrowFilepath", "FrontEnd\\HD\\Final\\FrontEnd_ScrollUpBtn"},
-                {"downArrowFilepath", "FrontEnd\\HD\\Final\\FrontEnd_ScrollDownBtn"}, {"barFilepath", "PauseMenu\\VerticalIndicator"},
-                {"viewName", viewName}, {"buttonScrollAmount", 80}, {"wheelScrollSound", "cursor_scroll_hd"}, {"buttonScrollSound", "cursor_scroll_hd"}}}}
-        })}});
+    children.push_back(textWidget("SetDetailTitle" + suffix, std::move(title), rect(0, 0, 1620, 60), centeredTitleStyle()));
+    children.push_back({{"type", "RectangleWidget"}, {"name", "SetScrollTrack" + suffix}, {"fields", {
+        {"rect", rect(1570, 70, 12, 820)}, {"color", Json::array({0.16, 0.13, 0.07, 1.0})}}}});
+    children.push_back({{"type", "ScrollControllerWidget"}, {"name", "SetScrollController" + suffix}, {"fields", {
+        {"rect", rect(1558, 70, 36, 820)}, {"upArrowFilepath", "FrontEnd\\HD\\Final\\FrontEnd_ScrollUpBtn"},
+        {"downArrowFilepath", "FrontEnd\\HD\\Final\\FrontEnd_ScrollDownBtn"}, {"barFilepath", "PauseMenu\\VerticalIndicator"},
+        {"viewName", viewName}, {"buttonScrollAmount", 80}, {"wheelScrollSound", "cursor_scroll_hd"}, {"buttonScrollSound", "cursor_scroll_hd"}}}});
     children.push_back({{"type", "ScrollViewWidget"}, {"name", viewName}, {"fields", {
-        {"rect", rect(0, 70, 1260, 700)}, {"scrollControllerName", "SetScrollController" + suffix}}}, {"children", Json::array({
-            {{"type", "Widget"}, {"name", "SetScrollContent" + suffix}, {"fields", {{"rect", rect(0, 0, 1260, std::max(720, static_cast<int>(lines.size()) * 34))}}}, {"children", std::move(content)}}
+        {"rect", rect(0, 70, 1540, 820)}, {"scrollControllerName", "SetScrollController" + suffix}}}, {"children", Json::array({
+            {{"type", "Widget"}, {"name", "SetScrollContent" + suffix}, {"fields", {{"rect", rect(0, 0, 1540, contentHeight)}}}, {"children", std::move(content)}}
         })}});
-    return {{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(700, 15, 1380, 790)}}}, {"children", std::move(children)}};
+    return {{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1660, 920)}}}, {"children", std::move(children)}};
 }
 }
 
@@ -339,8 +339,8 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t visibleRow) con
 
 std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     Json anchorChildren = Json::array();
-    anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2240, 70), centeredTitleStyle()));
-    anchorChildren.push_back(closeButtonWidget(rect(2140, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
+    anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2688, 70), centeredTitleStyle()));
+    anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
         anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(50 + static_cast<int>(i) * 520, 115, 360, 72),
@@ -368,12 +368,12 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
                     const auto* base = model.groupRecordAt(tab, row, member);
                     PrototypeDetail compact{base->name, baseLines(*base)};
                     Json cardChildren = Json::array();
-                    cardChildren.push_back(textWidget("BaseTitle" + suffix + "_" + std::to_string(member), base->name, rect(0, 0, 420, 55), centeredTitleStyle()));
-                    cardChildren.push_back(textWidget("BaseText" + suffix + "_" + std::to_string(member), detailText(compact), rect(0, 60, 420, 690), compactDetailTextStyle()));
+                    cardChildren.push_back(textWidget("BaseTitle" + suffix + "_" + std::to_string(member), base->name, rect(0, 0, 500, 55), centeredTitleStyle()));
+                    cardChildren.push_back(textWidget("BaseText" + suffix + "_" + std::to_string(member), detailText(compact), rect(0, 60, 500, 810), compactDetailTextStyle()));
                     cards.push_back({{"type", "Widget"}, {"name", "BaseCard" + suffix + "_" + std::to_string(member)},
-                        {"fields", {{"rect", rect(static_cast<int>(member) * 440, 0, 420, 760)}}}, {"children", std::move(cardChildren)}});
+                        {"fields", {{"rect", rect(static_cast<int>(member) * 520, 0, 500, 880)}}}, {"children", std::move(cardChildren)}});
                 }
-                children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1340, 780)}}}, {"children", std::move(cards)}});
+                children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1580, 900)}}}, {"children", std::move(cards)}});
                 continue;
             }
             const auto detail = model.detailFor(tab, row);
@@ -384,7 +384,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
                 {"fields", {{"rect", rect(720, 40, 1140, 770)}}}, {"children", std::move(detailChildren)}});
         }
         anchorChildren.push_back({{"type", "Widget"}, {"name", "Pane" + std::to_string(tab)},
-                                  {"fields", {{"rect", rect(0, 210, 2180, 820)}}}, {"children", std::move(children)}});
+                                  {"fields", {{"rect", rect(0, 210, 2620, 940)}}}, {"children", std::move(children)}});
     }
 
     Json root = {
@@ -393,7 +393,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
         {"children", Json::array({
             {{"type", "RectangleWidget"}, {"name", "ScreenDim"}, {"fields", {{"fitToScreen", true}, {"color", Json::array({0.0, 0.0, 0.0, 0.82})}}},
              {"children", Json::array({{{"type", "ClickCatcherWidget"}, {"name", "ClickCatcher"}, {"fields", {{"fitToParent", true}}}}})}},
-            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-900, -500, 2240, 1120)}, {"color", Json::array({0.055, 0.045, 0.03, 0.98})}}},
+            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-1120, -500, 2688, 1240)}, {"color", Json::array({0.0, 0.0, 0.0, 0.98})}}},
              {"children", std::move(anchorChildren)}}
         })}
     };

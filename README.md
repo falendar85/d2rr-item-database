@@ -10,6 +10,7 @@ See `docs/RESEARCH.md` for API constraints and `docs/DATA.md` for the completed
 normalization pipeline, schema, regeneration, and validation commands.
 
 The current integration milestone builds a reusable overlay with four tabs,
-eight-row paging, selection, grouped Set/Base details, and bounded detail scrolling. See
+site-matched catalog filters, eight-row paging, selection, grouped Set/Base details,
+and bounded detail scrolling. See
 `docs/UI-PROTOTYPE.md` for build instructions, exact manual file placement, the
 first in-game test, and the explicit verification boundary.

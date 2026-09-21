@@ -19,6 +19,13 @@ constexpr wchar_t OverlayClass[] = L"D2RRItemDatabaseOverlay";
 constexpr UINT ToggleMessage = WM_APP + 0x241;
 constexpr UINT StopMessage = WM_APP + 0x242;
 constexpr UINT TrackingTimer = 1;
+constexpr int SearchId = 4100;
+constexpr int ComboFirstId = 4110;
+constexpr int HideVanillaId = 4120;
+constexpr int ExactRunesId = 4121;
+constexpr int ResetFiltersId = 4122;
+constexpr int RuneListId = 4123;
+constexpr UINT EditSetCueBanner = 0x1501;
 constexpr COLORREF ParchmentText = RGB(238, 233, 217);
 constexpr COLORREF SiteUniqueText = RGB(199, 183, 144);
 constexpr COLORREF SiteSetText = RGB(76, 194, 56);
@@ -114,16 +121,16 @@ Layout layoutFor(int width, int height) {
         layout.tabs[static_cast<size_t>(tab)] = {tabLeft + tab * tabWidth, tabTop, tabLeft + (tab + 1) * tabWidth, tabTop + tabHeight};
     const int listLeft = 38;
     const int listWidth = std::clamp(width * 27 / 100, 300, 430);
-    const int rowsTop = 190;
+    const int rowsTop = 280;
     const int navigationHeight = 92;
-    const int available = std::max(360, height - rowsTop - navigationHeight - 30);
-    const int rowHeight = std::clamp(available / static_cast<int>(PrototypePageSize), 42, 62);
+    const int available = std::max(288, height - rowsTop - navigationHeight - 30);
+    const int rowHeight = std::clamp(available / static_cast<int>(PrototypePageSize), 36, 58);
     for (int row = 0; row < static_cast<int>(PrototypePageSize); ++row)
         layout.rows[static_cast<size_t>(row)] = {listLeft, rowsTop + row * rowHeight, listLeft + listWidth, rowsTop + (row + 1) * rowHeight - 4};
     const int navTop = rowsTop + static_cast<int>(PrototypePageSize) * rowHeight + 4;
     layout.previous = {listLeft, navTop, listLeft + listWidth / 2 - 3, navTop + 46};
     layout.next = {listLeft + listWidth / 2 + 3, navTop, listLeft + listWidth, navTop + 46};
-    layout.detail = {listLeft + listWidth + 28, 170, width - 40, height - 35};
+    layout.detail = {listLeft + listWidth + 28, 270, width - 40, height - 35};
     return layout;
 }
 
@@ -164,6 +171,19 @@ struct OverlayHost::Impl {
     bool draggingScroll = false;
     int scrollDragOffset = 0;
     HWND gameWindow = nullptr;
+    HWND searchEdit = nullptr;
+    std::array<HWND, 7> filterCombos{};
+    HWND hideVanilla = nullptr;
+    HWND exactRunes = nullptr;
+    HWND resetFilters = nullptr;
+    HWND runeListLabel = nullptr;
+    HWND runeList = nullptr;
+    std::vector<std::string> runeListValues;
+    HFONT controlFont = nullptr;
+    HBRUSH controlBrush = nullptr;
+    bool updatingControls = false;
+    std::array<std::string, 7> comboKeys{};
+    std::array<std::vector<std::string>, 7> comboValues{};
 
     Impl(PrototypeViewModel& source, const D2RL::PluginContext* context) : model(source), plugin(context) {}
 
@@ -211,17 +231,25 @@ struct OverlayHost::Impl {
         cls.lpszClassName = OverlayClass;
         RegisterClassExW(&cls);
         gameWindow = findGameWindow(nullptr);
-        const HWND handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE, OverlayClass, L"D2RR Item Database",
+        const HWND handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OverlayClass, L"D2RR Item Database",
             WS_POPUP, 100, 100, 1200, 760, gameWindow, nullptr, instance, this);
         window = handle;
         SetEvent(ready);
         if (handle == nullptr) return;
+        createControls(handle);
+        syncControls();
         SetTimer(handle, TrackingTimer, 100, nullptr);
         MSG message{};
         while (GetMessageW(&message, nullptr, 0, 0) > 0) {
+            if (message.message == WM_KEYDOWN && (message.wParam == VK_ESCAPE || message.wParam == VK_F8)) {
+                PostMessageW(handle, WM_KEYDOWN, message.wParam, 0);
+                continue;
+            }
             TranslateMessage(&message);
             DispatchMessageW(&message);
         }
+        if (controlFont != nullptr) DeleteObject(controlFont);
+        if (controlBrush != nullptr) DeleteObject(controlBrush);
         window = nullptr;
         UnregisterClassW(OverlayClass, instance);
     }
@@ -239,11 +267,15 @@ struct OverlayHost::Impl {
             self->visible = !self->visible;
             self->detailScroll = 0;
             self->updatePlacement(true);
-            if (self->visible) { ShowWindow(hwnd, SW_SHOWNOACTIVATE); InvalidateRect(hwnd, nullptr, FALSE); }
-            else ShowWindow(hwnd, SW_HIDE);
+            if (self->visible) {
+                ShowWindow(hwnd, SW_SHOW);
+                SetForegroundWindow(hwnd);
+                SetFocus(self->searchEdit);
+                InvalidateRect(hwnd, nullptr, FALSE);
+            } else self->hideOverlay();
             return 0;
         case WM_MOUSEACTIVATE:
-            return MA_NOACTIVATE;
+            return MA_ACTIVATE;
         case StopMessage:
             DestroyWindow(hwnd);
             return 0;
@@ -255,6 +287,20 @@ struct OverlayHost::Impl {
         case WM_PAINT:
             self->paint(hwnd);
             return 0;
+        case WM_SIZE:
+            self->positionControls();
+            return 0;
+        case WM_COMMAND:
+            self->controlChanged(LOWORD(wparam), HIWORD(wparam));
+            return 0;
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORSTATIC: {
+            const HDC controlDc = reinterpret_cast<HDC>(wparam);
+            SetTextColor(controlDc, ParchmentText);
+            SetBkColor(controlDc, RGB(48, 47, 44));
+            return reinterpret_cast<LRESULT>(self->controlBrush);
+        }
         case WM_LBUTTONDOWN:
             if (self->beginScrollDrag(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam))) return 0;
             break;
@@ -291,7 +337,7 @@ struct OverlayHost::Impl {
             return 0;
         }
         case WM_KEYDOWN:
-            if (wparam == VK_ESCAPE || wparam == VK_F8) { self->visible = false; ShowWindow(hwnd, SW_HIDE); return 0; }
+            if (wparam == VK_ESCAPE || wparam == VK_F8) { self->hideOverlay(); return 0; }
             if (wparam == VK_LEFT && self->model.previousPage()) { self->detailScroll = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
             if (wparam == VK_RIGHT && self->model.nextPage()) { self->detailScroll = 0; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
             break;
@@ -301,6 +347,200 @@ struct OverlayHost::Impl {
             return 0;
         }
         return DefWindowProcW(hwnd, message, wparam, lparam);
+    }
+
+    void hideOverlay() {
+        visible = false;
+        draggingScroll = false;
+        if (GetCapture() == window.load()) ReleaseCapture();
+        ShowWindow(window.load(), SW_HIDE);
+        if (IsWindow(gameWindow)) SetForegroundWindow(gameWindow);
+    }
+
+    void createControls(HWND parent) {
+        controlFont = font(16);
+        controlBrush = CreateSolidBrush(RGB(48, 47, 44));
+        searchEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL,
+            0, 0, 100, 30, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(SearchId)), GetModuleHandleW(nullptr), nullptr);
+        SendMessageW(searchEdit, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        SendMessageW(searchEdit, EM_SETLIMITTEXT, 120, 0);
+        SendMessageW(searchEdit, EditSetCueBanner, TRUE, reinterpret_cast<LPARAM>(L"Search name, property, base, or class..."));
+        for (size_t index = 0; index < filterCombos.size(); ++index) {
+            filterCombos[index] = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_TABSTOP | WS_BORDER |
+                CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL,
+                0, 0, 100, 260, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ComboFirstId + static_cast<int>(index))), GetModuleHandleW(nullptr), nullptr);
+            SendMessageW(filterCombos[index], WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        }
+        hideVanilla = CreateWindowExW(0, L"BUTTON", L"HIDE VANILLA", WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX,
+            0, 0, 150, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(HideVanillaId)), GetModuleHandleW(nullptr), nullptr);
+        exactRunes = CreateWindowExW(0, L"BUTTON", L"EXACT RUNES", WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX,
+            0, 0, 150, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ExactRunesId)), GetModuleHandleW(nullptr), nullptr);
+        resetFilters = CreateWindowExW(0, L"BUTTON", L"RESET FILTERS", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+            0, 0, 130, 30, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ResetFiltersId)), GetModuleHandleW(nullptr), nullptr);
+        runeListLabel = CreateWindowExW(0, L"STATIC", L"RUNES ONLY", WS_CHILD,
+            0, 0, 100, 20, parent, nullptr, GetModuleHandleW(nullptr), nullptr);
+        runeList = CreateWindowExW(0, L"LISTBOX", L"", WS_CHILD | WS_TABSTOP | WS_BORDER | WS_VSCROLL |
+            LBS_MULTIPLESEL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+            0, 0, 100, 90, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(RuneListId)), GetModuleHandleW(nullptr), nullptr);
+        SendMessageW(hideVanilla, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        SendMessageW(exactRunes, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        SendMessageW(resetFilters, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        SendMessageW(runeListLabel, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        SendMessageW(runeList, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+    }
+
+    void configureCombo(size_t index, std::string key, const std::string& allLabel,
+        std::vector<std::string> values, const std::string& selected, const std::vector<std::string>& displayValues = {}) {
+        comboKeys[index] = std::move(key);
+        comboValues[index].clear();
+        comboValues[index].push_back({});
+        comboValues[index].insert(comboValues[index].end(), values.begin(), values.end());
+        SendMessageW(filterCombos[index], CB_RESETCONTENT, 0, 0);
+        SendMessageW(filterCombos[index], CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(wide(allLabel).c_str()));
+        int selectedIndex = 0;
+        for (size_t item = 0; item < values.size(); ++item) {
+            const auto& display = displayValues.size() == values.size() ? displayValues[item] : values[item];
+            SendMessageW(filterCombos[index], CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(wide(display).c_str()));
+            if (lower(values[item]) == lower(selected)) selectedIndex = static_cast<int>(item + 1);
+        }
+        SendMessageW(filterCombos[index], CB_SETCURSEL, selectedIndex, 0);
+        ShowWindow(filterCombos[index], SW_SHOWNA);
+    }
+
+    void syncControls() {
+        if (searchEdit == nullptr) return;
+        updatingControls = true;
+        const size_t tab = model.activeTab();
+        const auto& filter = model.filters(tab);
+        SetWindowTextW(searchEdit, wide(filter.text).c_str());
+        for (auto control : filterCombos) ShowWindow(control, SW_HIDE);
+        ShowWindow(runeListLabel, SW_HIDE);
+        ShowWindow(runeList, SW_HIDE);
+        for (auto& key : comboKeys) key.clear();
+        ShowWindow(hideVanilla, tab < 3 ? SW_SHOWNA : SW_HIDE);
+        ShowWindow(exactRunes, tab == 2 ? SW_SHOWNA : SW_HIDE);
+        SendMessageW(hideVanilla, BM_SETCHECK, filter.hideVanilla ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(exactRunes, BM_SETCHECK, filter.exactRunes ? BST_CHECKED : BST_UNCHECKED, 0);
+        const std::vector<std::string> weaponModes{"1h", "2h"};
+        const std::vector<std::string> weaponModeLabels{"1H ONLY", "2H ONLY"};
+        const std::vector<std::string> damageSorts{
+            "avg-1h-phys-descending", "avg-1h-phys-ascending", "avg-2h-phys-descending", "avg-2h-phys-ascending",
+            "avg-throw-phys-descending", "avg-throw-phys-ascending", "avg-non-phys-descending", "avg-non-phys-ascending"};
+        const std::vector<std::string> damageSortLabels{
+            "1H PHYSICAL - HIGHEST", "1H PHYSICAL - LOWEST", "2H PHYSICAL - HIGHEST", "2H PHYSICAL - LOWEST",
+            "THROW PHYSICAL - HIGHEST", "THROW PHYSICAL - LOWEST", "ELEMENTAL - HIGHEST", "ELEMENTAL - LOWEST"};
+        if (tab == 0 || tab == 1) {
+            configureCombo(0, "type", "ALL ITEM TYPES", model.filterOptions(tab, "type"), filter.itemType);
+            configureCombo(1, "equipment", "ALL EQUIPMENT", model.filterOptions(tab, "equipment"), filter.equipment);
+            configureCombo(2, "class", "ALL CLASSES", model.filterOptions(tab, "class"), filter.itemClass);
+            configureCombo(3, "weapon", "ALL WEAPONS", weaponModes, filter.weaponMode, weaponModeLabels);
+            configureCombo(4, "sort", "DEFAULT DAMAGE SORT", damageSorts, filter.damageSort, damageSortLabels);
+        } else if (tab == 2) {
+            configureCombo(0, "type", "ALL ITEM TYPES", model.filterOptions(tab, "type"), filter.itemType);
+            configureCombo(1, "rune_count", "ANY RUNE COUNT", {"2", "3", "4", "5", "6"},
+                filter.runeCount == 0 ? "" : std::to_string(filter.runeCount), {"2 RUNES", "3 RUNES", "4 RUNES", "5 RUNES", "6 RUNES"});
+            runeListValues = model.filterOptions(tab, "rune");
+            SendMessageW(runeList, LB_RESETCONTENT, 0, 0);
+            for (size_t index = 0; index < runeListValues.size(); ++index) {
+                SendMessageW(runeList, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(wide(runeListValues[index]).c_str()));
+                if (std::any_of(filter.runes.begin(), filter.runes.end(), [&](const std::string& rune) {
+                    return lower(rune) == lower(runeListValues[index]);
+                })) SendMessageW(runeList, LB_SETSEL, TRUE, static_cast<LPARAM>(index));
+            }
+            ShowWindow(runeListLabel, SW_SHOWNA);
+            ShowWindow(runeList, SW_SHOWNA);
+        } else {
+            configureCombo(0, "category", "ALL BASES", {"Weapon", "Armor"}, filter.category, {"WEAPONS", "ARMORS"});
+            configureCombo(1, "type", "ALL ITEM TYPES", model.filterOptions(tab, "type"), filter.itemType);
+            configureCombo(2, "class", "ALL CLASSES", model.filterOptions(tab, "class"), filter.itemClass);
+            configureCombo(3, "tier", "ALL TIERS", {"Normal", "Exceptional", "Elite"}, filter.tier);
+            configureCombo(4, "sockets", "ANY SOCKETS", {"1", "2", "3", "4", "5", "6"},
+                filter.sockets == 0 ? "" : std::to_string(filter.sockets), {"1 SOCKET", "2 SOCKETS", "3 SOCKETS", "4 SOCKETS", "5 SOCKETS", "6 SOCKETS"});
+            configureCombo(5, "weapon", "ALL WEAPONS", weaponModes, filter.weaponMode, weaponModeLabels);
+            configureCombo(6, "sort", "DEFAULT DAMAGE SORT", damageSorts, filter.damageSort, damageSortLabels);
+        }
+        positionControls();
+        updatingControls = false;
+    }
+
+    void positionControls() {
+        if (searchEdit == nullptr || window.load() == nullptr) return;
+        RECT client{};
+        GetClientRect(window.load(), &client);
+        const Layout layout = layoutFor(client.right, client.bottom);
+        const int listLeft = layout.rows[0].left;
+        const int listWidth = layout.rows[0].right - layout.rows[0].left;
+        MoveWindow(searchEdit, listLeft, 150, listWidth, 34, TRUE);
+        MoveWindow(hideVanilla, listLeft, 190, 155, 28, TRUE);
+        MoveWindow(exactRunes, listLeft + 160, 190, 155, 28, TRUE);
+        MoveWindow(resetFilters, listLeft + listWidth - 135, 218, 135, 30, TRUE);
+        const int left = layout.detail.left;
+        const int available = layout.detail.right - layout.detail.left;
+        const int gap = 8;
+        const int columns = 3;
+        const int width = (available - gap * (columns - 1)) / columns;
+        for (size_t index = 0; index < filterCombos.size(); ++index) {
+            const int column = static_cast<int>(index) % columns;
+            const int row = static_cast<int>(index) / columns;
+            MoveWindow(filterCombos[index], left + column * (width + gap), 150 + row * 40, width, 300, TRUE);
+        }
+        MoveWindow(runeListLabel, left + 2 * (width + gap), 150, width, 20, TRUE);
+        MoveWindow(runeList, left + 2 * (width + gap), 172, width, 88, TRUE);
+    }
+
+    void controlChanged(int id, int notification) {
+        if (updatingControls) return;
+        const size_t tab = model.activeTab();
+        auto& filter = model.filters(tab);
+        bool changed = false;
+        if (id == SearchId && notification == EN_CHANGE) {
+            const int length = GetWindowTextLengthW(searchEdit);
+            std::wstring value(static_cast<size_t>(length + 1), L'\0');
+            if (length > 0) GetWindowTextW(searchEdit, value.data(), length + 1);
+            value.resize(static_cast<size_t>(length));
+            const int bytes = WideCharToMultiByte(CP_UTF8, 0, value.data(), length, nullptr, 0, nullptr, nullptr);
+            std::string utf8(static_cast<size_t>(bytes), '\0');
+            if (bytes > 0) WideCharToMultiByte(CP_UTF8, 0, value.data(), length, utf8.data(), bytes, nullptr, nullptr);
+            filter.text = std::move(utf8);
+            changed = true;
+        } else if (id >= ComboFirstId && id < ComboFirstId + static_cast<int>(filterCombos.size()) && notification == CBN_SELCHANGE) {
+            const size_t index = static_cast<size_t>(id - ComboFirstId);
+            const int selection = static_cast<int>(SendMessageW(filterCombos[index], CB_GETCURSEL, 0, 0));
+            const std::string value = selection >= 0 && static_cast<size_t>(selection) < comboValues[index].size() ? comboValues[index][static_cast<size_t>(selection)] : "";
+            const auto& key = comboKeys[index];
+            if (key == "type") filter.itemType = value;
+            else if (key == "equipment") filter.equipment = value;
+            else if (key == "class") filter.itemClass = value;
+            else if (key == "weapon") filter.weaponMode = value;
+            else if (key == "sort") filter.damageSort = value;
+            else if (key == "category") filter.category = value;
+            else if (key == "tier") filter.tier = value;
+            else if (key == "sockets") filter.sockets = value.empty() ? 0 : std::stoi(value);
+            else if (key == "rune_count") filter.runeCount = value.empty() ? 0 : std::stoi(value);
+            changed = true;
+        } else if (id == RuneListId && notification == LBN_SELCHANGE) {
+            filter.runes.clear();
+            for (size_t index = 0; index < runeListValues.size(); ++index)
+                if (SendMessageW(runeList, LB_GETSEL, static_cast<WPARAM>(index), 0) > 0) filter.runes.push_back(runeListValues[index]);
+            changed = true;
+        } else if (id == HideVanillaId && notification == BN_CLICKED) {
+            filter.hideVanilla = SendMessageW(hideVanilla, BM_GETCHECK, 0, 0) == BST_CHECKED;
+            changed = true;
+        } else if (id == ExactRunesId && notification == BN_CLICKED) {
+            filter.exactRunes = SendMessageW(exactRunes, BM_GETCHECK, 0, 0) == BST_CHECKED;
+            changed = true;
+        } else if (id == ResetFiltersId && notification == BN_CLICKED) {
+            model.resetFilters(tab);
+            detailScroll = 0;
+            syncControls();
+            InvalidateRect(window.load(), nullptr, FALSE);
+            return;
+        }
+        if (changed) {
+            model.applyFilters(tab);
+            detailScroll = 0;
+            InvalidateRect(window.load(), nullptr, FALSE);
+        }
     }
 
     void updatePlacement(bool forceShow) {
@@ -555,8 +795,10 @@ struct OverlayHost::Impl {
         const size_t page = model.page(tab);
         const size_t first = page * model.pageSize() + 1;
         const size_t last = page * model.pageSize() + model.visibleCount(tab);
-        RECT countRect{40, 145, layout.detail.left - 15, 183};
-        text(dc, std::to_string(model.count(tab)) + " RESULTS - SHOWING " + std::to_string(first) + "-" + std::to_string(last),
+        RECT countRect{40, 246, layout.detail.left - 15, 276};
+        const std::string countText = model.count(tab) == 0 ? "0 RESULTS" :
+            std::to_string(model.count(tab)) + " RESULTS - SHOWING " + std::to_string(first) + "-" + std::to_string(last);
+        text(dc, countText,
             countRect, RGB(238, 233, 217), 17, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         for (size_t row = 0; row < PrototypePageSize; ++row) {
             if (row < model.visibleCount(tab))
@@ -565,7 +807,8 @@ struct OverlayHost::Impl {
         button(dc, layout.previous, "PREVIOUS", false, page > 0);
         button(dc, layout.next, "NEXT", false, page + 1 < model.pageCount(tab));
         RECT pageRect{layout.previous.left, layout.previous.bottom + 2, layout.next.right, layout.previous.bottom + 28};
-        text(dc, "PAGE " + std::to_string(page + 1) + " OF " + std::to_string(model.pageCount(tab)), pageRect,
+        const size_t pages = model.pageCount(tab);
+        text(dc, "PAGE " + std::to_string(pages == 0 ? 0 : page + 1) + " OF " + std::to_string(pages), pageRect,
             RGB(221, 197, 137), 15, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
         const auto selected = model.selectedRow();
@@ -617,10 +860,10 @@ struct OverlayHost::Impl {
     void click(int x, int y) {
         RECT client{}; GetClientRect(window.load(), &client);
         const Layout layout = layoutFor(client.right, client.bottom);
-        if (contains(layout.close, x, y)) { visible = false; ShowWindow(window.load(), SW_HIDE); return; }
+        if (contains(layout.close, x, y)) { hideOverlay(); return; }
         for (size_t tab = 0; tab < layout.tabs.size(); ++tab) {
             if (contains(layout.tabs[tab], x, y) && model.switchTab(tab)) {
-                detailScroll = 0; InvalidateRect(window.load(), nullptr, FALSE); return;
+                detailScroll = 0; syncControls(); InvalidateRect(window.load(), nullptr, FALSE); return;
             }
         }
         for (size_t row = 0; row < model.visibleCount(model.activeTab()); ++row) {

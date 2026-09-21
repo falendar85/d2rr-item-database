@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iomanip>
 #include <map>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -197,48 +198,143 @@ Json scrollDetail(std::string suffix, std::string title, const std::vector<std::
 }
 }
 
+bool hasFieldValue(const Record&, const char*, const std::string&);
+std::optional<double> damageAverage(const Record&, const std::string&);
+bool matchesCatalogFilter(const Record&, const CatalogFilters&);
+
 PrototypeViewModel::PrototypeViewModel(const Database& database, size_t visibleLimit)
     : database_(&database), visibleLimit_(std::max<size_t>(1, visibleLimit)) {
-    for (size_t tab = 0; tab < Tabs.size(); ++tab) {
-        Query query;
-        query.tab = Tabs[tab];
-        query.sort = "name";
-        const auto indices = execute(database, query).indices;
-        if (tab == 1 || tab == 3) {
-            std::map<std::string, std::pair<std::string, std::vector<size_t>>> grouped;
-            for (const size_t index : indices) {
-                const auto& record = database.records[index];
-                std::string key;
-                std::string label;
-                if (tab == 1) {
-                    auto found = record.fields.find("set");
-                    key = found == record.fields.end() || found->second.empty() ? lower(record.name) : found->second.front();
-                    label = originalSetName(record);
-                } else {
-                    auto found = record.fields.find("base_family_code");
-                    key = found == record.fields.end() || found->second.empty() ? record.id : found->second.front();
-                    label = withoutTier(record.name);
-                }
-                auto& group = grouped[key];
-                if (group.first.empty() || (tab == 3 && tierOrder(record) == 0)) group.first = label;
-                group.second.push_back(index);
-            }
-            std::vector<std::pair<std::string, std::vector<size_t>>> ordered;
-            for (auto& [key, value] : grouped) ordered.push_back(std::move(value));
-            std::sort(ordered.begin(), ordered.end(), [](const auto& left, const auto& right) { return lower(left.first) < lower(right.first); });
-            for (auto& [label, members] : ordered) {
-                if (tab == 3) std::sort(members.begin(), members.end(), [&](size_t left, size_t right) { return tierOrder(database.records[left]) < tierOrder(database.records[right]); });
-                labels_[tab].push_back(std::move(label));
-                groups_[tab].push_back(std::move(members));
-            }
-        } else {
-            for (const size_t index : indices) {
-                labels_[tab].push_back(database.records[index].name);
-                groups_[tab].push_back({index});
-            }
-        }
-        if (!groups_[tab].empty()) selectedRows_[tab] = 0;
+    for (size_t tab = 0; tab < Tabs.size(); ++tab) rebuild(tab);
+}
+
+void PrototypeViewModel::rebuild(size_t tab) {
+    groups_[tab].clear();
+    labels_[tab].clear();
+    pages_[tab] = 0;
+    selectedRows_[tab].reset();
+    const auto& filter = filters_[tab];
+    Query query;
+    query.tab = Tabs[tab];
+    query.text = filter.text;
+    query.sort = "name";
+    if (!filter.itemType.empty()) query.any["type"] = {filter.itemType};
+    if (!filter.equipment.empty()) query.any["base"] = {filter.equipment};
+    if (!filter.itemClass.empty()) query.any["class"] = {filter.itemClass};
+    if (!filter.category.empty()) query.any["category"] = {filter.category};
+    if (!filter.tier.empty()) query.any["tier"] = {filter.tier};
+    if (filter.runeCount > 0) query.numeric.push_back({"rune_count", Op::Eq, static_cast<double>(filter.runeCount)});
+    if (!filter.runes.empty()) query.runes = filter.runes;
+    auto indices = execute(*database_, query).indices;
+    std::erase_if(indices, [&](size_t index) { return !matchesCatalogFilter(database_->records[index], filter); });
+
+    const bool descending = filter.damageSort.ends_with("descending");
+    if (!filter.damageSort.empty()) {
+        std::stable_sort(indices.begin(), indices.end(), [&](size_t left, size_t right) {
+            const auto a = damageAverage(database_->records[left], filter.damageSort);
+            const auto b = damageAverage(database_->records[right], filter.damageSort);
+            if (a.has_value() != b.has_value()) return a.has_value();
+            if (a && b && *a != *b) return descending ? *a > *b : *a < *b;
+            return lower(database_->records[left].name) < lower(database_->records[right].name);
+        });
     }
+
+    if (tab == 1 || tab == 3) {
+        std::set<std::string> matchedKeys;
+        for (const size_t index : indices) {
+            const auto& record = database_->records[index];
+            const char* field = tab == 1 ? "set" : "base_family_code";
+            const auto found = record.fields.find(field);
+            matchedKeys.insert(found == record.fields.end() || found->second.empty() ? record.id : lower(found->second.front()));
+        }
+        std::map<std::string, std::pair<std::string, std::vector<size_t>>> grouped;
+        for (size_t index = 0; index < database_->records.size(); ++index) {
+            const auto& record = database_->records[index];
+            if (record.tab != Tabs[tab]) continue;
+            const char* field = tab == 1 ? "set" : "base_family_code";
+            const auto found = record.fields.find(field);
+            const std::string key = found == record.fields.end() || found->second.empty() ? record.id : lower(found->second.front());
+            if (!matchedKeys.contains(key)) continue;
+            const std::string label = tab == 1 ? originalSetName(record) : withoutTier(record.name);
+            auto& group = grouped[key];
+            if (group.first.empty() || (tab == 3 && tierOrder(record) == 0)) group.first = label;
+            group.second.push_back(index);
+        }
+        std::vector<std::pair<std::string, std::vector<size_t>>> ordered;
+        for (auto& [key, value] : grouped) ordered.push_back(std::move(value));
+        std::sort(ordered.begin(), ordered.end(), [&](const auto& left, const auto& right) {
+            if (!filter.damageSort.empty()) {
+                const auto groupDamage = [&](const auto& group) -> std::optional<double> {
+                    std::optional<double> best;
+                    for (const size_t index : group.second) {
+                        const auto value = damageAverage(database_->records[index], filter.damageSort);
+                        if (value && (!best || (descending ? *value > *best : *value < *best))) best = value;
+                    }
+                    return best;
+                };
+                const auto a = groupDamage(left), b = groupDamage(right);
+                if (a.has_value() != b.has_value()) return a.has_value();
+                if (a && b && *a != *b) return descending ? *a > *b : *a < *b;
+            }
+            return lower(left.first) < lower(right.first);
+        });
+        for (auto& [label, members] : ordered) {
+            if (tab == 3) std::sort(members.begin(), members.end(), [&](size_t left, size_t right) {
+                return tierOrder(database_->records[left]) < tierOrder(database_->records[right]);
+            });
+            labels_[tab].push_back(std::move(label));
+            groups_[tab].push_back(std::move(members));
+        }
+    } else {
+        for (const size_t index : indices) {
+            labels_[tab].push_back(database_->records[index].name);
+            groups_[tab].push_back({index});
+        }
+    }
+    if (!groups_[tab].empty()) selectedRows_[tab] = 0;
+}
+
+CatalogFilters& PrototypeViewModel::filters(size_t tab) {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    return filters_[tab];
+}
+
+const CatalogFilters& PrototypeViewModel::filters(size_t tab) const {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    return filters_[tab];
+}
+
+bool PrototypeViewModel::applyFilters(size_t tab) {
+    if (tab >= Tabs.size()) return false;
+    rebuild(tab);
+    return true;
+}
+
+bool PrototypeViewModel::resetFilters(size_t tab) {
+    if (tab >= Tabs.size()) return false;
+    filters_[tab] = {};
+    rebuild(tab);
+    return true;
+}
+
+std::vector<std::string> PrototypeViewModel::filterOptions(size_t tab, const std::string& field) const {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    const char* source = nullptr;
+    if (field == "type") source = "type";
+    else if (field == "equipment") source = "base";
+    else if (field == "class") source = "class";
+    else if (field == "rune") source = "runes";
+    else throw std::out_of_range("Unknown catalog filter option field");
+    std::map<std::string, std::string> ordered;
+    for (const auto& record : database_->records) {
+        if (record.tab != Tabs[tab]) continue;
+        const auto found = record.fields.find(source);
+        if (found == record.fields.end()) continue;
+        for (const auto& value : found->second) if (!value.empty()) ordered.emplace(lower(value), titleCase(value));
+    }
+    std::vector<std::string> result;
+    result.reserve(ordered.size());
+    for (auto& [key, value] : ordered) result.push_back(std::move(value));
+    return result;
 }
 
 size_t PrototypeViewModel::count(size_t tab) const {
@@ -248,6 +344,58 @@ size_t PrototypeViewModel::count(size_t tab) const {
 
 size_t PrototypeViewModel::visibleCount(size_t tab) const {
     return visibleCount(tab, page(tab));
+}
+
+bool hasFieldValue(const Record& record, const char* field, const std::string& value) {
+    if (value.empty()) return true;
+    const auto found = record.fields.find(field);
+    if (found == record.fields.end()) return false;
+    const auto wanted = lower(value);
+    return std::any_of(found->second.begin(), found->second.end(), [&](const std::string& current) {
+        return lower(current) == wanted;
+    });
+}
+
+std::optional<double> damageAverage(const Record& record, const std::string& mode) {
+    std::vector<std::string> prefixes;
+    if (mode.starts_with("avg-1h-phys")) prefixes = {"One-Hand Damage:", "Damage:"};
+    else if (mode.starts_with("avg-2h-phys")) prefixes = {"Two-Hand Damage:"};
+    else if (mode.starts_with("avg-throw-phys")) prefixes = {"Throw Damage:"};
+    else if (mode.starts_with("avg-non-phys")) prefixes = {"Elemental Damage:"};
+    else return std::nullopt;
+    static const std::regex numberPattern(R"((\d+(?:\.\d+)?))");
+    for (const auto& prefix : prefixes) {
+        for (const auto& line : record.lines) {
+            if (!line.starts_with(prefix)) continue;
+            double total = 0;
+            size_t count = 0;
+            for (std::sregex_iterator match(line.begin() + static_cast<std::ptrdiff_t>(prefix.size()), line.end(), numberPattern), end;
+                 match != end; ++match) {
+                total += std::stod((*match)[1].str());
+                ++count;
+            }
+            if (count != 0) return total / static_cast<double>(count);
+        }
+    }
+    return std::nullopt;
+}
+
+bool matchesCatalogFilter(const Record& record, const CatalogFilters& filter) {
+    if (filter.hideVanilla && hasFieldValue(record, "origin", "Vanilla")) return false;
+    if (!filter.weaponMode.empty() && !damageAverage(record, filter.weaponMode == "1h" ? "avg-1h-phys" : "avg-2h-phys")) return false;
+    if (filter.sockets > 0) {
+        const auto found = record.numbers.find("max_sockets");
+        if (found == record.numbers.end() || static_cast<int>(found->second) != filter.sockets) return false;
+    }
+    if (filter.exactRunes && !filter.runes.empty()) {
+        const auto found = record.fields.find("runes");
+        if (found == record.fields.end()) return false;
+        std::set<std::string> actual, wanted;
+        for (const auto& rune : found->second) actual.insert(lower(rune));
+        for (const auto& rune : filter.runes) wanted.insert(lower(rune));
+        if (actual != wanted) return false;
+    }
+    return true;
 }
 
 size_t PrototypeViewModel::visibleCount(size_t tab, size_t targetPage) const {

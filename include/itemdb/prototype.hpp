@@ -13,6 +13,22 @@ struct PrototypeDetail {
     std::vector<std::string> lines;
 };
 
+struct CatalogFilters {
+    std::string text;
+    std::string itemType;
+    std::string equipment;
+    std::string itemClass;
+    std::string weaponMode;
+    std::string damageSort;
+    std::string category;
+    std::string tier;
+    std::vector<std::string> runes;
+    int sockets = 0;
+    int runeCount = 0;
+    bool exactRunes = false;
+    bool hideVanilla = false;
+};
+
 class PrototypeViewModel {
     const Database* database_ = nullptr;
     std::array<std::vector<std::vector<size_t>>, Tabs.size()> groups_;
@@ -21,6 +37,8 @@ class PrototypeViewModel {
     size_t activeTab_ = 0;
     std::array<size_t, Tabs.size()> pages_{};
     std::array<std::optional<size_t>, Tabs.size()> selectedRows_;
+    std::array<CatalogFilters, Tabs.size()> filters_;
+    void rebuild(size_t tab);
 public:
     explicit PrototypeViewModel(const Database&, size_t visibleLimit = PrototypePageSize);
     size_t activeTab() const { return activeTab_; }
@@ -51,6 +69,11 @@ public:
     const Record* uniqueAt(size_t visibleRow) const noexcept { return recordAt(0, visibleRow); }
     const Record* selectedRecord() const noexcept;
     const Record* selectedUnique() const noexcept { return activeTab_ == 0 ? selectedRecord() : nullptr; }
+    CatalogFilters& filters(size_t tab);
+    const CatalogFilters& filters(size_t tab) const;
+    bool applyFilters(size_t tab);
+    bool resetFilters(size_t tab);
+    std::vector<std::string> filterOptions(size_t tab, const std::string& field) const;
     PrototypeDetail detailFor(size_t tab, size_t visibleRow) const;
     PrototypeDetail detailFor(size_t tab, size_t page, size_t visibleRow) const;
     PrototypeDetail detailFor(size_t visibleRow) const { return detailFor(activeTab_, visibleRow); }

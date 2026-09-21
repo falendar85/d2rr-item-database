@@ -1,4 +1,5 @@
 #include <itemdb/prototype.hpp>
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 
@@ -78,6 +79,32 @@ int main(int argc, char** argv) {
         require(completeModel.groupRecordAt(3, targeRow, 0)->name == "Targe [N]" &&
                 completeModel.groupRecordAt(3, targeRow, 1)->name == "Akaran Targe [X]" &&
                 completeModel.groupRecordAt(3, targeRow, 2)->name == "Sacred Targe [E]", "base family tier order invalid");
+        PrototypeViewModel filterModel(database, database.records.size());
+        filterModel.filters(0).text = "Abyssal Torment";
+        require(filterModel.applyFilters(0) && filterModel.count(0) == 1 && filterModel.labelAt(0, 0) == "Abyssal Torment",
+                "Unique text search did not narrow the catalog");
+        require(filterModel.resetFilters(0) && filterModel.count(0) == completeModel.count(0), "Unique filter reset failed");
+        filterModel.filters(1).text = "Afterlife";
+        require(filterModel.applyFilters(1) && filterModel.count(1) == 1 && filterModel.labelAt(1, 0) == "Hades' Underworld",
+                "Set member search did not return its complete set");
+        require(filterModel.groupSize(1, 0) == 5, "filtered set omitted nonmatching set members");
+        filterModel.filters(2).runes = {"Jah"};
+        filterModel.filters(2).runeCount = 4;
+        require(filterModel.applyFilters(2) && filterModel.count(2) > 0, "Runeword rune filters returned no results");
+        for (size_t row = 0; row < filterModel.count(2); ++row) {
+            const auto* record = filterModel.recordAt(2, row);
+            require(record->numbers.at("rune_count") == 4, "Runeword count filter admitted the wrong rune count");
+            const auto& runes = record->fields.at("runes");
+            require(std::any_of(runes.begin(), runes.end(), [](const std::string& rune) { return lower(rune) == "jah"; }),
+                    "Runeword rune filter admitted the wrong sequence");
+        }
+        filterModel.filters(3).itemType = "Paladin Auric Shield";
+        filterModel.filters(3).tier = "Elite";
+        require(filterModel.applyFilters(3) && filterModel.count(3) > 0, "Base type/tier filters returned no families");
+        for (size_t row = 0; row < filterModel.count(3); ++row)
+            require(filterModel.groupSize(3, row) >= 2, "filtered base family omitted its related tiers");
+        require(!filterModel.filterOptions(0, "type").empty() && !filterModel.filterOptions(0, "equipment").empty() &&
+                !filterModel.filterOptions(2, "rune").empty(), "catalog filter options were not generated");
         require(model.switchTab(0), "failed to return to Uniques");
         const auto layoutText = buildPrototypeLayout(model);
         require(layoutText.size() < 1024 * 1024, "prototype layout unexpectedly large");

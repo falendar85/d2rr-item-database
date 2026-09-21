@@ -442,12 +442,13 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
         plugin->LogInfo(loaded.c_str());
 
         for (size_t tab = 0; tab < itemdb::Tabs.size(); ++tab) {
+            const size_t pagesPerPanel = itemdb::PrototypePagesPerPanelByTab[tab];
             for (size_t firstPage = 0, chunkNumber = 0; firstPage < model->pageCount(tab);
-                 firstPage += itemdb::PrototypePagesPerPanel, ++chunkNumber) {
+                 firstPage += pagesPerPanel, ++chunkNumber) {
                 PanelChunk chunk;
                 chunk.tab = tab;
                 chunk.firstPage = firstPage;
-                chunk.pageCount = std::min(itemdb::PrototypePagesPerPanel, model->pageCount(tab) - firstPage);
+                chunk.pageCount = std::min(pagesPerPanel, model->pageCount(tab) - firstPage);
                 chunk.localId = "ItemDatabase-" + std::to_string(tab) + "-" + std::to_string(chunkNumber);
                 const std::string resourcePath = "data/global/ui/layouts/item-database/" + chunk.localId + "hd.json";
                 const std::string chunkLayout = itemdb::buildPrototypeLayout(*model, chunk.localId, tab, firstPage, chunk.pageCount);

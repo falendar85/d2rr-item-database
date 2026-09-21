@@ -400,7 +400,8 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t targetPage, siz
 }
 
 std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::string& localId, size_t tab, size_t firstPage, size_t pageLimit) {
-    if (tab >= Tabs.size() || firstPage >= model.pageCount(tab) || pageLimit == 0) throw std::out_of_range("Prototype panel slice is invalid");
+    if (tab >= Tabs.size() || firstPage >= model.pageCount(tab)) throw std::out_of_range("Prototype panel slice is invalid");
+    if (pageLimit == 0) pageLimit = PrototypePagesPerPanelByTab[tab];
     Json anchorChildren = Json::array();
     anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2688, 70), centeredTitleStyle()));
     anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/" + localId));

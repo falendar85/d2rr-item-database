@@ -7,7 +7,7 @@
 
 namespace itemdb {
 inline constexpr size_t PrototypePageSize = 8;
-inline constexpr size_t PrototypePagesPerPanel = 8;
+inline constexpr std::array<size_t, 4> PrototypePagesPerPanelByTab{5, 1, 4, 4};
 
 struct PrototypeDetail {
     std::string title;
@@ -58,5 +58,5 @@ public:
 };
 
 std::string buildPrototypeLayout(const PrototypeViewModel&, const std::string& localId = "ItemDatabase",
-                                 size_t tab = 0, size_t firstPage = 0, size_t pageLimit = PrototypePagesPerPanel);
+                                 size_t tab = 0, size_t firstPage = 0, size_t pageLimit = 0);
 }

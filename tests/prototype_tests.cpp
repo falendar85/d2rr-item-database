@@ -95,19 +95,22 @@ int main(int argc, char** argv) {
         size_t chunkCount = 0;
         size_t aggregateChunkBytes = 0;
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
-            for (size_t firstPage = 0; firstPage < model.pageCount(tab); firstPage += PrototypePagesPerPanel) {
+            const size_t pagesPerPanel = PrototypePagesPerPanelByTab[tab];
+            for (size_t firstPage = 0; firstPage < model.pageCount(tab); firstPage += pagesPerPanel) {
                 const std::string chunkId = "All-" + std::to_string(tab) + "-" + std::to_string(chunkCount);
-                const auto chunkText = buildPrototypeLayout(model, chunkId, tab, firstPage, PrototypePagesPerPanel);
+                const auto chunkText = buildPrototypeLayout(model, chunkId, tab, firstPage, pagesPerPanel);
                 aggregateChunkBytes += chunkText.size();
                 require(Json::parse(chunkText)["name"] == "item-database/" + chunkId, "generated chunk root invalid");
                 ++chunkCount;
             }
         }
-        require(chunkCount == 32, "panel chunk count exceeds the tested registration plan");
+        require(chunkCount == 63, "panel chunk count does not match the tested registration plan");
+        require(chunkCount < 64, "panel chunk count reaches D2RLoader's registration ceiling");
         require(aggregateChunkBytes < 64ull * 1024 * 1024, "aggregate panel chunks exceed the loader resource budget");
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             const std::string localId = "Test-" + std::to_string(tab);
-            const auto tabLayoutText = buildPrototypeLayout(model, localId, tab, 0, PrototypePagesPerPanel);
+            const size_t pagesPerPanel = PrototypePagesPerPanelByTab[tab];
+            const auto tabLayoutText = buildPrototypeLayout(model, localId, tab, 0, pagesPerPanel);
             require(tabLayoutText.size() < 2ull * 1024 * 1024, "panel chunk is unexpectedly large");
             const auto tabLayout = Json::parse(tabLayoutText);
             require(tabLayout["name"] == "item-database/" + localId, "chunk panel root invalid");
@@ -117,11 +120,11 @@ int main(int argc, char** argv) {
             require(findNode(tabLayout, "Pane" + std::to_string(tab)) != nullptr, "tab pane missing");
             require(findNode(tabLayout, "Pane" + std::to_string((tab + 1) % Tabs.size())) == nullptr, "chunk contains another tab's pane");
             require(findNode(tabLayout, "Page" + std::to_string(tab) + "_0") != nullptr, "first tab page missing");
-            const size_t finalChunkPage = std::min(PrototypePagesPerPanel, model.pageCount(tab)) - 1;
+            const size_t finalChunkPage = std::min(pagesPerPanel, model.pageCount(tab)) - 1;
             require(findNode(tabLayout, "Page" + std::to_string(tab) + "_" + std::to_string(finalChunkPage)) != nullptr, "last page in first chunk missing");
-            require(findNode(tabLayout, "Page" + std::to_string(tab) + "_" + std::to_string(PrototypePagesPerPanel)) == nullptr, "chunk rendered too many pages");
-            const size_t lastChunkStart = ((model.pageCount(tab) - 1) / PrototypePagesPerPanel) * PrototypePagesPerPanel;
-            const auto lastChunk = Json::parse(buildPrototypeLayout(model, localId + "-last", tab, lastChunkStart, PrototypePagesPerPanel));
+            require(findNode(tabLayout, "Page" + std::to_string(tab) + "_" + std::to_string(pagesPerPanel)) == nullptr, "chunk rendered too many pages");
+            const size_t lastChunkStart = ((model.pageCount(tab) - 1) / pagesPerPanel) * pagesPerPanel;
+            const auto lastChunk = Json::parse(buildPrototypeLayout(model, localId + "-last", tab, lastChunkStart, pagesPerPanel));
             require(findNode(lastChunk, "Page" + std::to_string(tab) + "_" + std::to_string(model.pageCount(tab) - 1)) != nullptr,
                     "final catalog page missing from final chunk");
             const auto* count = findNode(tabLayout, "Count" + std::to_string(tab) + "_0");

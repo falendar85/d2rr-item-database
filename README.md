@@ -14,3 +14,15 @@ site-matched catalog filters, eight-row paging, selection, grouped Set/Base deta
 and bounded detail scrolling. See
 `docs/UI-PROTOTYPE.md` for build instructions, exact manual file placement, the
 first in-game test, and the explicit verification boundary.
+
+## Credits
+
+- **Falendar** — project creator, product direction, UI design decisions, and in-game testing.
+- **OpenAI Codex** — implementation, automated testing, and release preparation support.
+
+The generated catalog is derived from the
+[D2R Reimagined website data](https://github.com/D2R-Reimagined/d2r-reimagined-website),
+and the addon integrates through the
+[D2RLoader Plugin SDK](https://github.com/D2RLoader/PluginSDK). JSON loading uses
+[JSON for Modern C++](https://github.com/nlohmann/json). See
+[`CREDITS.md`](CREDITS.md) for the complete attribution and project relationship notes.

@@ -19,6 +19,9 @@ constexpr wchar_t OverlayClass[] = L"D2RRItemDatabaseOverlay";
 constexpr UINT ToggleMessage = WM_APP + 0x241;
 constexpr UINT StopMessage = WM_APP + 0x242;
 constexpr UINT TrackingTimer = 1;
+constexpr COLORREF ParchmentText = RGB(238, 233, 217);
+constexpr COLORREF SiteUniqueText = RGB(199, 183, 144);
+constexpr COLORREF SiteSetText = RGB(76, 194, 56);
 
 std::wstring wide(const std::string& text) {
     if (text.empty()) return {};
@@ -287,12 +290,14 @@ struct OverlayHost::Impl {
         ClientToScreen(gameWindow, &origin);
         const int gameWidth = client.right - client.left;
         const int gameHeight = client.bottom - client.top;
-        const int width = std::max(900, gameWidth * 94 / 100);
-        const int height = std::max(620, gameHeight * 90 / 100);
+        // Keep the overlay compact on ultrawide and high-resolution clients.
+        // These caps still leave enough room for the three-column base view.
+        const int width = std::min(gameWidth, std::clamp(gameWidth * 78 / 100, 1050, 1500));
+        const int height = std::min(gameHeight, std::clamp(gameHeight * 86 / 100, 720, 920));
         const int x = origin.x + (gameWidth - width) / 2;
         const int y = origin.y + (gameHeight - height) / 2;
         SetWindowLongPtrW(window.load(), GWLP_HWNDPARENT, reinterpret_cast<LONG_PTR>(gameWindow));
-        SetWindowPos(window.load(), HWND_TOPMOST, x, y, std::min(width, gameWidth), std::min(height, gameHeight),
+        SetWindowPos(window.load(), HWND_TOPMOST, x, y, width, height,
             SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
 
@@ -312,7 +317,8 @@ struct OverlayHost::Impl {
         DeleteObject(selected);
     }
 
-    void button(HDC dc, const RECT& rect, const std::string& label, bool selected, bool enabled = true) const {
+    void button(HDC dc, const RECT& rect, const std::string& label, bool selected, bool enabled = true,
+        COLORREF labelColor = ParchmentText) const {
         const HBRUSH fill = CreateSolidBrush(selected ? RGB(70, 67, 58) : RGB(48, 47, 44));
         FillRect(dc, &rect, fill); DeleteObject(fill);
         const HPEN outer = CreatePen(PS_SOLID, 2, enabled ? RGB(178, 132, 62) : RGB(82, 76, 65));
@@ -324,8 +330,20 @@ struct OverlayHost::Impl {
         SelectObject(dc, innerPen); Rectangle(dc, inner.left, inner.top, inner.right, inner.bottom);
         SelectObject(dc, oldBrush); SelectObject(dc, oldPen); DeleteObject(innerPen); DeleteObject(outer);
         RECT labelRect = rect;
-        text(dc, label, labelRect, enabled ? RGB(239, 235, 220) : RGB(120, 116, 106), 18,
+        text(dc, label, labelRect, enabled ? labelColor : RGB(120, 116, 106), 18,
             DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, selected ? FW_BOLD : FW_NORMAL);
+    }
+
+    COLORREF rowColor(size_t tab) const {
+        if (tab == 1) return SiteSetText;
+        if (tab == 3) return ParchmentText; // Base-family headings are parchment on the site.
+        return SiteUniqueText;
+    }
+
+    COLORREF titleColor(size_t tab) const {
+        if (tab == 1) return SiteSetText;
+        if (tab == 3) return ParchmentText;
+        return SiteUniqueText;
     }
 
     std::vector<std::string> selectedLines() const {
@@ -366,7 +384,8 @@ struct OverlayHost::Impl {
         return static_cast<int>(maximum);
     }
 
-    int drawLines(HDC dc, RECT rect, const std::vector<std::string>& lines, int scroll, bool centered = true) const {
+    int drawLines(HDC dc, RECT rect, const std::vector<std::string>& lines, int scroll, bool centered = true,
+        const std::set<std::string>* accentLines = nullptr, COLORREF accentColor = ParchmentText) const {
         const int lineHeight = 27;
         int y = rect.top;
         const int first = std::min<int>(scroll, static_cast<int>(lines.size()));
@@ -381,7 +400,9 @@ struct OverlayHost::Impl {
             SelectObject(dc, old); DeleteObject(selected);
             const int height = std::max<int>(lineHeight, measured.bottom - measured.top);
             line.bottom = std::min<LONG>(y + height, rect.bottom);
-            text(dc, lines[static_cast<size_t>(index)], line, RGB(238, 233, 217), 17, flags);
+            const auto& value = lines[static_cast<size_t>(index)];
+            const COLORREF color = accentLines != nullptr && accentLines->contains(value) ? accentColor : ParchmentText;
+            text(dc, value, line, color, 17, flags);
             y += height;
         }
         return static_cast<int>(lines.size());
@@ -413,7 +434,8 @@ struct OverlayHost::Impl {
         text(dc, std::to_string(model.count(tab)) + " RESULTS - SHOWING " + std::to_string(first) + "-" + std::to_string(last),
             countRect, RGB(238, 233, 217), 17, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         for (size_t row = 0; row < PrototypePageSize; ++row) {
-            if (row < model.visibleCount(tab)) button(dc, layout.rows[row], model.labelAt(tab, row), model.selectedRow(tab) == row);
+            if (row < model.visibleCount(tab))
+                button(dc, layout.rows[row], model.labelAt(tab, row), model.selectedRow(tab) == row, true, rowColor(tab));
         }
         button(dc, layout.previous, "PREVIOUS", false, page > 0);
         button(dc, layout.next, "NEXT", false, page + 1 < model.pageCount(tab));
@@ -427,7 +449,8 @@ struct OverlayHost::Impl {
             const auto* record = model.selectedRecord();
             const std::string titleText = tab == 1 || tab == 3 ? model.labelAt(tab, *selected) : record->name;
             RECT detailTitle{detail.left, detail.top, detail.right, detail.top + 55};
-            text(dc, titleText, detailTitle, RGB(221, 197, 137), 27, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, FW_BOLD);
+            text(dc, titleText, detailTitle, titleColor(tab), 27,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, FW_BOLD);
             RECT body{detail.left + 8, detail.top + 60, detail.right - 8, detail.bottom};
             if (tab == 3) {
                 const size_t members = model.groupSize(tab, *selected);
@@ -438,13 +461,20 @@ struct OverlayHost::Impl {
                     RECT column{body.left + static_cast<int>(member) * (columnWidth + gap), body.top,
                         body.left + static_cast<int>(member) * (columnWidth + gap) + columnWidth, body.bottom};
                     RECT baseTitle{column.left, column.top, column.right, column.top + 42};
-                    text(dc, base->name, baseTitle, RGB(221, 197, 137), 21, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, FW_BOLD);
+                    text(dc, base->name, baseTitle, SiteUniqueText, 21,
+                        DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, FW_BOLD);
                     column.top += 48;
                     drawLines(dc, column, recordLines(*base, false), detailScroll, true);
                 }
             } else {
                 const auto lines = selectedLines();
-                const int total = drawLines(dc, body, lines, detailScroll, true);
+                std::set<std::string> setItemNames;
+                if (tab == 1) {
+                    for (size_t member = 0; member < model.groupSize(tab, *selected); ++member)
+                        setItemNames.insert(model.groupRecordAt(tab, *selected, member)->name);
+                }
+                const int total = drawLines(dc, body, lines, detailScroll, true,
+                    tab == 1 ? &setItemNames : nullptr, SiteSetText);
                 if (total > 18) {
                     RECT track{body.right - 8, body.top, body.right - 2, body.bottom};
                     const HBRUSH trackBrush = CreateSolidBrush(RGB(65, 57, 39)); FillRect(dc, &track, trackBrush); DeleteObject(trackBrush);

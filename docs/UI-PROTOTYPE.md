@@ -1,35 +1,35 @@
-# Minimal in-game UI prototype
+# Dynamic overlay milestone
 
-This milestone proves the connection between the normalized database and the
-public D2RLoader UI services. It does not implement search or the complete
-Sets, Runewords, and Bases views.
+This milestone replaces the native D2R panel prototype with a reusable Win32
+overlay hosted by the D2RLoader client plugin. Native panels retain their widget
+trees for the whole game session and the public Widget service cannot update
+text, which made catalog paging exhaust D2R's UI allocation. The overlay keeps
+one fixed set of controls and draws the current records dynamically.
 
 ## Integration design
 
-At plugin load, `src/plugin.cpp` reads `item-database/database.json` beside the
-plugin, constructs `PrototypeViewModel`, and asks `buildPrototypeLayout` to
-generate a D2R UI JSON resource. The plugin then:
+At plugin load, `src/plugin.cpp` reads `item-database/database.json`, constructs
+`PrototypeViewModel`, and starts `OverlayHost` on its own Windows UI thread. The
+overlay:
 
-1. registers `data/global/ui/layouts/item-database/ItemDatabasehd.json` through
-   `ResourceService`;
-2. registers the namespaced `item-database/ItemDatabase` panel through
-   `PanelService`;
-3. listens for its tab, result-selection, and close button messages through
-   `SharedEventService`;
-4. switches the bounded panes and prebuilt detail widgets through
-   `WidgetService::setWidgetVisible`;
-5. registers `Open Item Database` as a bindable input action, initially F8,
-   and the `itemdb` developer-console command as a fallback.
+1. locates and follows the D2R client window;
+2. stays hidden until the D2RLoader `Open Item Database` action (F8) is pressed;
+3. uses a no-activate topmost window so mouse interaction does not take focus
+   away from D2R;
+4. draws four tabs, eight reusable result rows, Previous/Next controls, the
+   current page number, selected details, and a bounded detail scrollbar;
+5. renders complete Set groups and all members of each Base family;
+6. hides when D2R is not the foreground process and shuts down its UI thread
+   before the plugin unloads.
 
-This works within the public SDK's supported dynamic operations. The SDK does
-not expose a general text setter, so the first eight alphabetically sorted
-Unique rows and their details are materialized into the registered layout when
-the database loads. Selection only changes visibility. That is enough to test
-the integration without adding an unsupported widget hook.
+Paging is model-driven and does not create another window or native D2R widget.
+Each tab remembers its page. Moving to another page selects the first result on
+that page. Search is the next overlay milestone and will filter this same result
+model.
 
 ## Build
 
-Run from the repository root in PowerShell:
+Run from the repository root in a Visual Studio developer PowerShell:
 
 ```powershell
 python tools/bootstrap.py
@@ -37,47 +37,40 @@ python tools/bootstrap.py
 .\tools\build.ps1 -Configuration Release
 ```
 
-`bootstrap.py` downloads the exact D2RLoader SDK revision and JSON header pinned
-in `upstream.lock.json` into ignored `.deps`. The builds run both the existing
-backend test suite and the real-database prototype smoke test.
+The build runs the backend suite and the real-database prototype suite. The
+latter checks first/last-page boundaries, invalid navigation, page retention
+per tab, selection reset after paging, grouped Sets, and Base-family ordering.
 
-## Manual first in-game test
+## Manual overlay test
 
-Nothing in this repository installs itself. To test a Release build, manually
-copy only these files to either the global plugin root or the Reimagined
-mod-scoped plugin root supported by your D2RLoader setup:
+Copy only these files beneath the Reimagined mod directory:
 
 ```text
-d2rloader/plugins/
-├── d2rl-item-database.dll       <- build-Release/d2rl-item-database.dll
+mods/Reimagined/d2rloader/plugins/
+├── d2rl-item-database.dll
 └── item-database/
-    └── database.json            <- data/database.json
+    └── database.json
 ```
 
-For a mod-scoped test, the same `d2rloader/plugins` subtree belongs under
-`<game>/mods/<Reimagined mod>/`. Do not put the database in the MPQ.
-
 1. Start D2RLoader with Reimagined and confirm `D2RR Item Database` appears in
-   the Extensions list as a client plugin.
-2. Enter a game. Press F8, or enable the developer console and run `itemdb`.
-3. Confirm the panel opens and shows exactly Uniques, Sets, Runewords, and Bases.
-4. Confirm eight Unique names appear and the initially selected item has real
-   base, type, tier, level, origin, applicable damage/defense/socket fields, and
-   property lines.
-5. Select several Unique rows and verify the right-side details change.
-6. Switch through Sets, Runewords, and Bases. Each should show the milestone
-   placeholder, then switch back to Uniques without closing or crashing.
-7. Close with the panel's Close button, Escape, F8, or `itemdb`.
-8. Review the plugin log for load, database counts, panel registration/open,
-   tab changes, selection, detail updates, close-button/toggle close, and any
-   UI lookup failure.
+   Extensions as a client plugin.
+2. Enter a game and press F8. Confirm the dark overlay appears over the D2R
+   client without minimizing or pausing the game.
+3. Switch through Uniques, Sets, Runewords, and Bases.
+4. Select several rows and confirm the right-side content changes.
+5. Use Previous and Next repeatedly on every tab. Verify the page number and
+   eight result rows update without overlapping or corrupting.
+6. On Sets, use the mouse wheel over the detail area and confirm scrolling stops
+   at both ends.
+7. On Bases, verify the Normal, Exceptional, and Elite members appear as
+   separate columns when the family has all three.
+8. Close with X or F8, reopen it, and repeat a page change.
+9. Check `d2rloader/logs/item-database.log` for overlay load errors.
 
 ## Current verification boundary
 
-The DLL, ABI exports, manifest resource section, normalized-database load,
-bounded list, selection, detail projection, all tab states, and generated JSON
-shape are tested on Windows. Actual D2R widget construction, sprite sizing,
-message delivery, visibility behavior, controller focus, and ultrawide layout
-remain unverified until the manual game test above. Escape closure is owned by
-D2RLoader's `CloseOnEscape` behavior and therefore does not emit this plugin's
-explicit close log line.
+The database load, paging state, grouped data, Release DLL, ABI exports, and
+overlay compilation are tested. Placement, foreground tracking, click delivery,
+font availability, scaling, and interaction with D2R's cursor must be verified
+in the game. Search input is intentionally deferred until this reusable overlay
+shell passes that test.

@@ -247,13 +247,45 @@ size_t PrototypeViewModel::count(size_t tab) const {
 }
 
 size_t PrototypeViewModel::visibleCount(size_t tab) const {
-    return std::min(visibleLimit_, count(tab));
+    return visibleCount(tab, page(tab));
+}
+
+size_t PrototypeViewModel::visibleCount(size_t tab, size_t targetPage) const {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    const size_t start = targetPage * visibleLimit_;
+    if (start >= groups_[tab].size()) return 0;
+    return std::min(visibleLimit_, groups_[tab].size() - start);
+}
+
+size_t PrototypeViewModel::pageCount(size_t tab) const {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    return groups_[tab].empty() ? 0 : (groups_[tab].size() + visibleLimit_ - 1) / visibleLimit_;
+}
+
+size_t PrototypeViewModel::page(size_t tab) const {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    return pages_[tab];
 }
 
 bool PrototypeViewModel::switchTab(size_t tab) noexcept {
     if (tab >= Tabs.size()) return false;
     activeTab_ = tab;
     return true;
+}
+
+bool PrototypeViewModel::switchPage(size_t targetPage) noexcept {
+    if (targetPage >= pageCount(activeTab_)) return false;
+    pages_[activeTab_] = targetPage;
+    selectedRows_[activeTab_] = visibleCount(activeTab_) == 0 ? std::nullopt : std::optional<size_t>{0};
+    return true;
+}
+
+bool PrototypeViewModel::previousPage() noexcept {
+    return pages_[activeTab_] > 0 && switchPage(pages_[activeTab_] - 1);
+}
+
+bool PrototypeViewModel::nextPage() noexcept {
+    return pages_[activeTab_] + 1 < pageCount(activeTab_) && switchPage(pages_[activeTab_] + 1);
 }
 
 bool PrototypeViewModel::select(size_t visibleRow) noexcept {
@@ -268,22 +300,46 @@ std::optional<size_t> PrototypeViewModel::selectedRow(size_t tab) const {
 }
 
 const Record* PrototypeViewModel::recordAt(size_t tab, size_t visibleRow) const noexcept {
-    return groupRecordAt(tab, visibleRow, 0);
+    if (tab >= Tabs.size()) return nullptr;
+    return recordAt(tab, pages_[tab], visibleRow);
+}
+
+const Record* PrototypeViewModel::recordAt(size_t tab, size_t targetPage, size_t visibleRow) const noexcept {
+    return groupRecordAt(tab, targetPage, visibleRow, 0);
 }
 
 const Record* PrototypeViewModel::groupRecordAt(size_t tab, size_t visibleRow, size_t member) const noexcept {
-    if (database_ == nullptr || tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, groups_[tab].size()) || member >= groups_[tab][visibleRow].size()) return nullptr;
-    return &database_->records[groups_[tab][visibleRow][member]];
+    if (tab >= Tabs.size()) return nullptr;
+    return groupRecordAt(tab, pages_[tab], visibleRow, member);
+}
+
+const Record* PrototypeViewModel::groupRecordAt(size_t tab, size_t targetPage, size_t visibleRow, size_t member) const noexcept {
+    const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
+    if (database_ == nullptr || tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) ||
+        absoluteRow >= groups_[tab].size() || member >= groups_[tab][absoluteRow].size()) return nullptr;
+    return &database_->records[groups_[tab][absoluteRow][member]];
 }
 
 size_t PrototypeViewModel::groupSize(size_t tab, size_t visibleRow) const noexcept {
-    if (tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, groups_[tab].size())) return 0;
-    return groups_[tab][visibleRow].size();
+    if (tab >= Tabs.size()) return 0;
+    return groupSize(tab, pages_[tab], visibleRow);
+}
+
+size_t PrototypeViewModel::groupSize(size_t tab, size_t targetPage, size_t visibleRow) const noexcept {
+    const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
+    if (tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= groups_[tab].size()) return 0;
+    return groups_[tab][absoluteRow].size();
 }
 
 const std::string& PrototypeViewModel::labelAt(size_t tab, size_t visibleRow) const {
-    if (tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, labels_[tab].size())) throw std::out_of_range("Result label is outside the prototype page");
-    return labels_[tab][visibleRow];
+    return labelAt(tab, page(tab), visibleRow);
+}
+
+const std::string& PrototypeViewModel::labelAt(size_t tab, size_t targetPage, size_t visibleRow) const {
+    const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
+    if (tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= labels_[tab].size())
+        throw std::out_of_range("Result label is outside the prototype page");
+    return labels_[tab][absoluteRow];
 }
 
 const Record* PrototypeViewModel::selectedRecord() const noexcept {
@@ -292,7 +348,11 @@ const Record* PrototypeViewModel::selectedRecord() const noexcept {
 }
 
 PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t visibleRow) const {
-    const Record* record = recordAt(tab, visibleRow);
+    return detailFor(tab, page(tab), visibleRow);
+}
+
+PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t targetPage, size_t visibleRow) const {
+    const Record* record = recordAt(tab, targetPage, visibleRow);
     if (record == nullptr) throw std::out_of_range("Result row is outside the prototype page");
     PrototypeDetail detail;
     detail.title = record->name;

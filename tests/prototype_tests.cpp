@@ -36,8 +36,35 @@ int main(int argc, char** argv) {
             const auto* selected = model.selectedRecord();
             require(!model.select(model.visibleCount(tab)), "invalid item selection was accepted");
             require(model.selectedRecord() == selected, "invalid selection changed state");
+            require(model.pageCount(tab) > 1 && model.page(tab) == 0, "tab paging unavailable");
+            require(!model.previousPage(), "first page moved backward");
+            const auto* firstRecord = model.recordAt(tab, 0);
+            require(model.nextPage() && model.page(tab) == 1, "next page failed");
+            require(model.selectedRow(tab) == 0 && model.selectedRecord() != firstRecord, "page change did not select its first item");
+            require(model.previousPage() && model.page(tab) == 0, "previous page failed");
+            require(model.switchPage(model.pageCount(tab) - 1), "last page switch failed");
+            require(model.visibleCount(tab) > 0 && model.visibleCount(tab) <= PrototypePageSize, "last page size invalid");
+            require(!model.nextPage(), "last page moved forward");
+            size_t visited = 0;
+            for (size_t page = 0; page < model.pageCount(tab); ++page) {
+                require(model.switchPage(page), "catalog page traversal failed");
+                for (size_t row = 0; row < model.visibleCount(tab); ++row) {
+                    require(!model.labelAt(tab, row).empty() && model.recordAt(tab, row) != nullptr, "paged result is incomplete");
+                    require(model.groupSize(tab, row) > 0, "paged result group is empty");
+                    for (size_t member = 0; member < model.groupSize(tab, row); ++member)
+                        require(model.groupRecordAt(tab, row, member) != nullptr, "paged group member is unavailable");
+                    ++visited;
+                }
+            }
+            require(visited == model.count(tab), "paging did not cover the complete tab catalog");
+            require(model.switchPage(0), "failed to restore first page");
         }
-        require(!model.switchTab(Tabs.size()) && model.activeTab() == Tabs.size() - 1, "invalid tab changed state");
+        require(model.switchTab(0) && model.nextPage(), "failed to retain a Unique page");
+        require(model.switchTab(1) && model.nextPage(), "failed to retain a Set page");
+        require(model.switchTab(0) && model.page(0) == 1, "Unique page was not retained across tabs");
+        require(model.switchPage(0) && model.switchTab(1) && model.switchPage(0), "failed to reset retained pages");
+        const size_t activeBeforeInvalidTab = model.activeTab();
+        require(!model.switchTab(Tabs.size()) && model.activeTab() == activeBeforeInvalidTab, "invalid tab changed state");
         PrototypeViewModel completeModel(database, database.records.size());
         size_t hadesRow = completeModel.count(1);
         for (size_t row = 0; row < completeModel.count(1); ++row) if (completeModel.labelAt(1, row) == "Hades' Underworld") hadesRow = row;

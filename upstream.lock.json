@@ -1,0 +1,26 @@
+{
+  "sdk": {
+    "repo": "D2RLoader/PluginSDK",
+    "sha": "6fbabfc84a72b83ed812ce7f45f79a519fdd0877",
+    "branch": "master"
+  },
+  "website": {
+    "repo": "D2R-Reimagined/d2r-reimagined-website",
+    "sha": "c7db0b49f6f75e1c15e808533572e4ac69be2db8",
+    "branch": "master"
+  },
+  "mod": {
+    "repo": "D2R-Reimagined/d2r-reimagined-mod",
+    "sha": "0148b1b9486d36640a48432921a82b203a7bad46",
+    "branch": "next"
+  },
+  "lan": {
+    "repo": "D2R-Reimagined/d2r-reimagined-LAN",
+    "sha": "5d4e119fcb5eadaa38da5fba12a9f76e727cba91",
+    "branch": "main"
+  },
+  "json": {
+    "version": "3.12.0",
+    "sha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63"
+  }
+}

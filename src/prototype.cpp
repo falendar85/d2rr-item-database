@@ -102,15 +102,22 @@ std::string detailText(const PrototypeDetail& detail) {
 
 PrototypeViewModel::PrototypeViewModel(const Database& database, size_t visibleLimit)
     : database_(&database), visibleLimit_(std::max<size_t>(1, visibleLimit)) {
-    Query query;
-    query.tab = "uniques";
-    query.sort = "name";
-    uniqueResults_ = execute(database, query).indices;
-    if (!uniqueResults_.empty()) selectedRow_ = 0;
+    for (size_t tab = 0; tab < Tabs.size(); ++tab) {
+        Query query;
+        query.tab = Tabs[tab];
+        query.sort = "name";
+        results_[tab] = execute(database, query).indices;
+        if (!results_[tab].empty()) selectedRows_[tab] = 0;
+    }
 }
 
-size_t PrototypeViewModel::visibleUniqueCount() const {
-    return std::min(visibleLimit_, uniqueResults_.size());
+size_t PrototypeViewModel::count(size_t tab) const {
+    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    return results_[tab].size();
+}
+
+size_t PrototypeViewModel::visibleCount(size_t tab) const {
+    return std::min(visibleLimit_, count(tab));
 }
 
 bool PrototypeViewModel::switchTab(size_t tab) noexcept {
@@ -119,31 +126,41 @@ bool PrototypeViewModel::switchTab(size_t tab) noexcept {
     return true;
 }
 
-bool PrototypeViewModel::selectUnique(size_t visibleRow) noexcept {
-    if (visibleRow >= visibleUniqueCount()) return false;
-    selectedRow_ = visibleRow;
+bool PrototypeViewModel::select(size_t visibleRow) noexcept {
+    if (visibleRow >= visibleCount(activeTab_)) return false;
+    selectedRows_[activeTab_] = visibleRow;
     return true;
 }
 
-const Record* PrototypeViewModel::uniqueAt(size_t visibleRow) const noexcept {
-    if (database_ == nullptr || visibleRow >= visibleUniqueCount()) return nullptr;
-    return &database_->records[uniqueResults_[visibleRow]];
+std::optional<size_t> PrototypeViewModel::selectedRow(size_t tab) const {
+    if (tab >= Tabs.size()) return std::nullopt;
+    return selectedRows_[tab];
 }
 
-const Record* PrototypeViewModel::selectedUnique() const noexcept {
-    return selectedRow_ ? uniqueAt(*selectedRow_) : nullptr;
+const Record* PrototypeViewModel::recordAt(size_t tab, size_t visibleRow) const noexcept {
+    if (database_ == nullptr || tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, results_[tab].size())) return nullptr;
+    return &database_->records[results_[tab][visibleRow]];
 }
 
-PrototypeDetail PrototypeViewModel::detailFor(size_t visibleRow) const {
-    const Record* record = uniqueAt(visibleRow);
-    if (record == nullptr) throw std::out_of_range("Unique result row is outside the prototype page");
+const Record* PrototypeViewModel::selectedRecord() const noexcept {
+    const auto row = selectedRows_[activeTab_];
+    return row ? recordAt(activeTab_, *row) : nullptr;
+}
+
+PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t visibleRow) const {
+    const Record* record = recordAt(tab, visibleRow);
+    if (record == nullptr) throw std::out_of_range("Result row is outside the prototype page");
     PrototypeDetail detail;
     detail.title = record->name;
     addField(detail.lines, *record, "base", "Base");
+    addField(detail.lines, *record, "set", "Set");
+    addField(detail.lines, *record, "runes", "Runes");
     addField(detail.lines, *record, "type", "Item Type");
     addField(detail.lines, *record, "category", "Category");
     addField(detail.lines, *record, "tier", "Tier");
     addNumber(detail.lines, *record, "required_level", "Required Level");
+    addNumber(detail.lines, *record, "strength", "Required Strength");
+    addNumber(detail.lines, *record, "dexterity", "Required Dexterity");
     addField(detail.lines, *record, "class", "Class");
     addField(detail.lines, *record, "weapon_type", "Weapon Type");
     auto minimum = record->numbers.find("min_damage");
@@ -185,25 +202,27 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
                                               "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[i])));
     }
 
-    Json uniqueChildren = Json::array();
-    uniqueChildren.push_back(textWidget("UniqueCount", std::to_string(model.uniqueCount()) + " unique items loaded - first " + std::to_string(model.visibleUniqueCount()) + " shown", rect(45, 20, 650, 45)));
-    for (size_t row = 0; row < model.visibleUniqueCount(); ++row) {
-        const auto* record = model.uniqueAt(row);
-        uniqueChildren.push_back(buttonWidget("UniqueRow" + std::to_string(row), record->name, rect(45, 85 + static_cast<int>(row) * 78, 610, 65),
-                                              "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row)));
-        const auto detail = model.detailFor(row);
-        Json detailChildren = Json::array();
-        detailChildren.push_back(textWidget("DetailTitle" + std::to_string(row), detail.title, rect(10, 0, 860, 60), centeredTitleStyle()));
-        detailChildren.push_back(textWidget("DetailText" + std::to_string(row), detailText(detail), rect(10, 65, 860, 610), detailTextStyle()));
-        uniqueChildren.push_back({{"type", "Widget"}, {"name", "UniqueDetail" + std::to_string(row)},
-                                  {"fields", {{"rect", rect(720, 55, 900, 680)}}}, {"children", std::move(detailChildren)}});
-    }
-    anchorChildren.push_back({{"type", "Widget"}, {"name", "UniquePane"},
-                              {"fields", {{"rect", rect(0, 210, 1700, 690)}}}, {"children", std::move(uniqueChildren)}});
-    for (size_t i = 1; i < Tabs.size(); ++i) {
+    static constexpr std::array<const char*, 4> singularLabels{"unique item", "set item", "runeword", "base item"};
+    for (size_t tab = 0; tab < Tabs.size(); ++tab) {
         Json children = Json::array();
-        children.push_back(textWidget("PlaceholderText" + std::to_string(i), std::string(labels[i]) + "\n\nNot implemented in this milestone", rect(250, 180, 1200, 220), "$StyleSettingsTitle"));
-        anchorChildren.push_back({{"type", "Widget"}, {"name", "PlaceholderPane" + std::to_string(i)},
+        const std::string prefix = std::string(Tabs[tab]);
+        children.push_back(textWidget("Count" + std::to_string(tab), std::to_string(model.count(tab)) + " " + singularLabels[tab] +
+            (model.count(tab) == 1 ? "" : "s") + " loaded - first " + std::to_string(model.visibleCount(tab)) + " shown", rect(45, 20, 650, 45)));
+        for (size_t row = 0; row < model.visibleCount(tab); ++row) {
+            const auto* record = model.recordAt(tab, row);
+            children.push_back(buttonWidget("Row" + std::to_string(tab) + "_" + std::to_string(row), record->name,
+                rect(45, 85 + static_cast<int>(row) * 78, 610, 65),
+                "PanelManager:ClosePanel:item-database/action/select/" + prefix + "/" + std::to_string(row)));
+            const auto detail = model.detailFor(tab, row);
+            Json detailChildren = Json::array();
+            detailChildren.push_back(textWidget("DetailTitle" + std::to_string(tab) + "_" + std::to_string(row), detail.title,
+                rect(10, 0, 860, 60), centeredTitleStyle()));
+            detailChildren.push_back(textWidget("DetailText" + std::to_string(tab) + "_" + std::to_string(row), detailText(detail),
+                rect(10, 65, 860, 610), detailTextStyle()));
+            children.push_back({{"type", "Widget"}, {"name", "Detail" + std::to_string(tab) + "_" + std::to_string(row)},
+                {"fields", {{"rect", rect(720, 55, 900, 680)}}}, {"children", std::move(detailChildren)}});
+        }
+        anchorChildren.push_back({{"type", "Widget"}, {"name", "Pane" + std::to_string(tab)},
                                   {"fields", {{"rect", rect(0, 210, 1700, 690)}}}, {"children", std::move(children)}});
     }
 

@@ -63,21 +63,21 @@ bool applyView() {
         logResult("Item Database panel widget lookup failed", static_cast<uint32_t>(result));
         return false;
     }
-    bool ok = setVisible(root, "UniquePane", model->activeTab() == 0);
-    for (size_t tab = 1; tab < itemdb::Tabs.size(); ++tab) {
-        ok = setVisible(root, "PlaceholderPane" + std::to_string(tab), model->activeTab() == tab) && ok;
-    }
-    for (size_t row = 0; row < model->visibleUniqueCount(); ++row) {
-        const bool selected = model->activeTab() == 0 && model->selectedRow() == row;
-        ok = setVisible(root, "UniqueDetail" + std::to_string(row), selected) && ok;
+    bool ok = true;
+    for (size_t tab = 0; tab < itemdb::Tabs.size(); ++tab) {
+        ok = setVisible(root, "Pane" + std::to_string(tab), model->activeTab() == tab) && ok;
+        for (size_t row = 0; row < model->visibleCount(tab); ++row) {
+            const bool selected = model->activeTab() == tab && model->selectedRow(tab) == row;
+            ok = setVisible(root, "Detail" + std::to_string(tab) + "_" + std::to_string(row), selected) && ok;
+        }
     }
     return ok;
 }
 
 void logSelectedDetail() {
-    const auto* selected = model ? model->selectedUnique() : nullptr;
+    const auto* selected = model ? model->selectedRecord() : nullptr;
     if (selected == nullptr || pluginContext == nullptr) return;
-    const auto detail = model->detailFor(*model->selectedRow());
+    const auto detail = model->detailFor(model->activeTab(), *model->selectedRow());
     const std::string message = "Item Database detail updated: " + selected->name + " (" + std::to_string(detail.lines.size()) + " lines)";
     pluginContext->LogInfo(message.c_str());
 }
@@ -186,17 +186,28 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
     }
     constexpr char SelectPrefix[] = "select/";
     if (std::strncmp(action, SelectPrefix, sizeof(SelectPrefix) - 1) == 0) {
-        const char* rowText = action + sizeof(SelectPrefix) - 1;
+        const char* selection = action + sizeof(SelectPrefix) - 1;
+        const char* slash = std::strchr(selection, '/');
+        if (slash == nullptr) {
+            plugin->LogWarn("Item Database ignored a malformed selection");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        const std::string tabName(selection, slash);
+        if (tabName != itemdb::Tabs[model->activeTab()]) {
+            plugin->LogWarn("Item Database ignored a selection for an inactive tab");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        const char* rowText = slash + 1;
         size_t row = 0;
         const char* end = rowText + std::strlen(rowText);
         auto parsed = std::from_chars(rowText, end, row);
-        if (parsed.ec != std::errc{} || parsed.ptr != end || !model->selectUnique(row)) {
-            plugin->LogWarn("Item Database ignored an invalid Unique selection");
+        if (parsed.ec != std::errc{} || parsed.ptr != end || !model->select(row)) {
+            plugin->LogWarn("Item Database ignored an invalid item selection");
             return D2RL::SharedEvents::UiMessageAction::Consume;
         }
-        const std::string message = "Item Database Unique selected: " + model->selectedUnique()->name;
+        const std::string message = "Item Database item selected: " + model->selectedRecord()->name;
         plugin->LogInfo(message.c_str());
-        if (!applyView()) plugin->LogError("Item Database UI initialization failed while selecting a Unique");
+        if (!applyView()) plugin->LogError("Item Database UI initialization failed while selecting an item");
         else logSelectedDetail();
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }

@@ -21,21 +21,21 @@ int main(int argc, char** argv) {
         require(argc == 2, "database path argument required");
         const auto database = Database::load(argv[1]);
         PrototypeViewModel model(database);
-        require(model.uniqueCount() > 1000, "normalized Unique records unavailable");
-        require(model.visibleUniqueCount() == PrototypePageSize, "prototype page is not bounded");
-        require(model.selectedUnique() != nullptr, "initial Unique selection missing");
-        for (size_t row = 0; row < model.visibleUniqueCount(); ++row) {
-            require(model.selectUnique(row), "valid Unique selection failed");
-            require(model.selectedUnique() == model.uniqueAt(row), "selected Unique mismatch");
-            const auto detail = model.detailFor(row);
-            require(detail.title == model.uniqueAt(row)->name, "detail title is not derived from the record");
-            require(!detail.lines.empty(), "detail lines missing");
-        }
-        const auto* selected = model.selectedUnique();
-        require(!model.selectUnique(model.visibleUniqueCount()), "invalid Unique selection was accepted");
-        require(model.selectedUnique() == selected, "invalid selection changed state");
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             require(model.switchTab(tab) && model.activeTab() == tab, "tab switch failed");
+            require(model.count(tab) > PrototypePageSize, "normalized tab records unavailable");
+            require(model.visibleCount(tab) == PrototypePageSize, "tab page is not bounded");
+            require(model.selectedRecord() == model.recordAt(tab, 0), "initial tab selection missing");
+            for (size_t row = 0; row < model.visibleCount(tab); ++row) {
+                require(model.select(row), "valid item selection failed");
+                require(model.selectedRecord() == model.recordAt(tab, row), "selected item mismatch");
+                const auto detail = model.detailFor(tab, row);
+                require(detail.title == model.recordAt(tab, row)->name, "detail title is not derived from the record");
+                require(!detail.lines.empty(), "detail lines missing");
+            }
+            const auto* selected = model.selectedRecord();
+            require(!model.select(model.visibleCount(tab)), "invalid item selection was accepted");
+            require(model.selectedRecord() == selected, "invalid selection changed state");
         }
         require(!model.switchTab(Tabs.size()) && model.activeTab() == Tabs.size() - 1, "invalid tab changed state");
         require(model.switchTab(0), "failed to return to Uniques");
@@ -60,21 +60,26 @@ int main(int argc, char** argv) {
             require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[tab]), "tab message invalid");
             require((*button)["fields"]["rect"]["x"] == 50 + static_cast<int>(tab) * 520, "tab borders are not evenly separated");
         }
-        const auto* count = findNode(layout, "UniqueCount");
-        require(count != nullptr && (*count)["fields"]["rect"]["y"] == 20, "Unique count was not lowered");
-        for (size_t row = 0; row < PrototypePageSize; ++row) {
-            const auto* button = findNode(layout, "UniqueRow" + std::to_string(row));
-            require(button != nullptr, "Unique row widget missing");
-            require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row), "Unique row message invalid");
-            require((*button)["fields"]["rect"]["y"] == 85 + static_cast<int>(row) * 78, "Unique row was not lowered");
-            require(findNode(layout, "UniqueDetail" + std::to_string(row)) != nullptr, "Unique detail widget missing");
-            const auto* detailTitle = findNode(layout, "DetailTitle" + std::to_string(row));
-            require(detailTitle != nullptr && (*detailTitle)["fields"]["style"]["alignment"]["h"] == "center", "item title is not centered");
-            const auto* detailText = findNode(layout, "DetailText" + std::to_string(row));
-            require(detailText != nullptr && (*detailText)["fields"]["style"]["alignment"]["v"] == "top", "detail text is not top aligned");
-            require((*detailText)["fields"]["style"]["pointSize"] == "$SmallFontSize", "detail text does not use the bounded font size");
+        for (size_t tab = 0; tab < Tabs.size(); ++tab) {
+            require(findNode(layout, "Pane" + std::to_string(tab)) != nullptr, "tab pane missing");
+            const auto* count = findNode(layout, "Count" + std::to_string(tab));
+            require(count != nullptr && (*count)["fields"]["rect"]["y"] == 20, "tab count was not lowered");
+            for (size_t row = 0; row < PrototypePageSize; ++row) {
+                const auto suffix = std::to_string(tab) + "_" + std::to_string(row);
+                const auto* button = findNode(layout, "Row" + suffix);
+                require(button != nullptr, "tab row widget missing");
+                require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" +
+                    std::string(Tabs[tab]) + "/" + std::to_string(row), "tab row message invalid");
+                require((*button)["fields"]["rect"]["y"] == 85 + static_cast<int>(row) * 78, "tab row was not lowered");
+                require(findNode(layout, "Detail" + suffix) != nullptr, "tab detail widget missing");
+                const auto* detailTitle = findNode(layout, "DetailTitle" + suffix);
+                require(detailTitle != nullptr && (*detailTitle)["fields"]["style"]["alignment"]["h"] == "center", "item title is not centered");
+                const auto* detailText = findNode(layout, "DetailText" + suffix);
+                require(detailText != nullptr && (*detailText)["fields"]["style"]["alignment"]["v"] == "top", "detail text is not top aligned");
+                require((*detailText)["fields"]["style"]["pointSize"] == "$SmallFontSize", "detail text does not use the bounded font size");
+            }
+            require(findNode(layout, "Row" + std::to_string(tab) + "_8") == nullptr, "tab rendered too many rows");
         }
-        require(findNode(layout, "UniqueRow8") == nullptr, "prototype rendered too many rows");
         std::cout << "Prototype smoke passed: " << database.records.size() << " records, "
                   << model.uniqueCount() << " Uniques, " << layoutText.size() << " layout bytes\n";
         return 0;

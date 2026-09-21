@@ -7,9 +7,10 @@ The game runtime never fetches or scrapes the website.
 
 `data/guides.json` is a separate reproducible offline snapshot generated from
 the pinned D2R Reimagined wiki revision. It contains category records for Cube
-Recipes, Item Enchants, Item Crafting, and Loot Table. HTML tables are flattened
-into readable recipe lines while headings, notes, lists, and source hashes are
-preserved.
+Recipes, Item Enchants, Item Crafting, and Power Orbs. Recipe tables retain their
+reagent, equals, and result columns, including multi-line cells. Orb of Corruption
+retains its gear-specific affix tables while omitting the location table. Headings,
+notes, lists, and source hashes are preserved.
 
 ## Regenerate
 

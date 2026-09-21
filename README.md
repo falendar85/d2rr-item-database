@@ -11,8 +11,9 @@ normalization pipeline, schema, regeneration, and validation commands.
 
 The current integration milestone builds a reusable overlay with eight tabs. The
 four searchable item catalogs retain site-matched filters, while Cube Recipes,
-Item Enchants, Item Crafting, and Loot Table provide offline wiki categories and
-scrollable details. All tabs use eight-row paging and bounded detail scrolling. See
+Item Enchants, and Item Crafting reproduce the wiki's column layout and color cues.
+The Orbs tab contains the seven Power Orb guides and gear-specific corruption affixes.
+All tabs use eight-row paging and bounded detail scrolling. See
 `docs/UI-PROTOTYPE.md` for build instructions, exact manual file placement, the
 first in-game test, and the explicit verification boundary.
 

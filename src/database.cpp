@@ -25,6 +25,13 @@ Database Database::parse(const Json& j) {
             r.numbers[it.key()]=n;
         }
         r.lines=x.at("display_lines").get<std::vector<std::string>>();
+        for(const auto& table:x.value("guide_tables",Json::array())) {
+            GuideTable parsed;
+            parsed.title=table.value("title","");
+            parsed.headers=table.value("headers",std::vector<std::string>{});
+            parsed.rows=table.value("rows",std::vector<std::vector<std::string>>{});
+            if(!parsed.rows.empty()) r.guideTables.push_back(std::move(parsed));
+        }
         for(const auto& p:x.at("properties")) {
             Property prop; prop.id=lower(string(p,"property_id")); prop.name=p.value("canonical_name",prop.id); prop.text=p.value("text","");
             if(p.contains("min_value") && !p["min_value"].is_null()) prop.min=p["min_value"].get<double>();
@@ -36,6 +43,11 @@ Database Database::parse(const Json& j) {
         r.search=lower(r.name+"\n"+x.value("search_text",""));
         for(auto& [k,vs]:r.fields) for(auto& v:vs) r.search+="\n"+v;
         for(auto& l:r.lines) r.search+="\n"+lower(l);
+        for(const auto& table:r.guideTables) {
+            r.search+="\n"+lower(table.title);
+            for(const auto& header:table.headers) r.search+="\n"+lower(header);
+            for(const auto& row:table.rows) for(const auto& cell:row) r.search+="\n"+lower(cell);
+        }
         db.records.push_back(std::move(r));
     }
     if(db.records.empty()) throw std::runtime_error("Empty database");

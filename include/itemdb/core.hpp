@@ -11,11 +11,16 @@ namespace itemdb {
 using Json = nlohmann::json;
 inline constexpr std::array<const char*,4> Tabs{"uniques","sets","runewords","bases"};
 inline constexpr std::array<const char*,8> CatalogTabs{
-    "uniques","sets","runewords","bases","cube-recipes","item-enchants","item-crafting","loot-table"};
+    "uniques","sets","runewords","bases","cube-recipes","item-enchants","item-crafting","orbs"};
 struct Property {
     std::string id, name, text, scope;
     std::optional<double> min, max;
     bool conditional=false, perLevel=false;
+};
+struct GuideTable {
+    std::string title;
+    std::vector<std::string> headers;
+    std::vector<std::vector<std::string>> rows;
 };
 struct Record {
     std::string id,name,tab,search;
@@ -23,6 +28,7 @@ struct Record {
     std::map<std::string,double> numbers;
     std::vector<Property> properties;
     std::vector<std::string> lines;
+    std::vector<GuideTable> guideTables;
 };
 struct Database {
     std::vector<Record> records;

@@ -17,7 +17,7 @@
         "required": ["id", "tab", "name", "fields", "numbers", "properties", "display_lines", "source_ref", "search_text"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "tab": { "enum": ["cube-recipes", "item-enchants", "item-crafting", "loot-table"] },
+          "tab": { "enum": ["cube-recipes", "item-enchants", "item-crafting", "orbs"] },
           "name": { "type": "string", "minLength": 1 },
           "fields": { "type": "object" },
           "numbers": { "type": "object" },
@@ -31,7 +31,14 @@
               "section": { "type": "string", "minLength": 1 }
             }
           },
-          "search_text": { "type": "string" }
+          "search_text": { "type": "string" },
+          "guide_tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["title", "headers", "rows"]
+            }
+          }
         }
       }
     }

@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
                 require(model.selectedRecord() == model.recordAt(tab, row), "selected item mismatch");
                 const auto detail = model.detailFor(tab, row);
                 require(detail.title == model.recordAt(tab, row)->name, "detail title is not derived from the record");
-                require(!detail.lines.empty(), "detail lines missing");
+                require(!detail.lines.empty() || !model.recordAt(tab, row)->guideTables.empty(), "detail content missing");
             }
             const auto* selected = model.selectedRecord();
             require(!model.select(model.visibleCount(tab)), "invalid item selection was accepted");
@@ -93,9 +93,9 @@ int main(int argc, char** argv) {
         require(model.count(4) == 8 && model.labelAt(4, 0) == "Socket Recipes", "cube recipe categories are incomplete");
         require(model.count(5) == 9 && model.labelAt(5, 0) == "Amulets", "item enchant categories are incomplete");
         require(model.count(6) == 12 && model.labelAt(6, 0) == "Amulets", "item crafting categories are incomplete");
-        require(model.count(7) == 4 && model.labelAt(7, 0) == "Boss Definitions", "loot table categories are incomplete");
-        require(model.switchTab(4) && model.detailFor(4, 0).lines.size() >= 8, "cube recipe details are missing");
-        require(model.switchTab(7) && model.detailFor(7, 0).lines.size() >= 20, "loot table details are missing");
+        require(model.count(7) == 7 && model.labelAt(7, 0) == "Orb of Renewal", "orb categories are incomplete");
+        require(model.switchTab(4) && !model.selectedRecord()->guideTables.empty(), "cube recipe tables are missing");
+        require(model.switchTab(7) && model.labelAt(7, 6) == "Orb of Corruption", "corruption orb is missing");
         PrototypeViewModel completeModel(database, database.records.size());
         size_t hadesRow = completeModel.count(1);
         for (size_t row = 0; row < completeModel.count(1); ++row) if (completeModel.labelAt(1, row) == "Hades' Underworld") hadesRow = row;

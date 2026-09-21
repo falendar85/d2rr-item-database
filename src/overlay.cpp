@@ -229,6 +229,13 @@ struct ScrollMetrics {
     RECT thumb{};
 };
 
+enum class GuideRowKind { Text, Heading, Header, Data };
+struct GuideVisualRow {
+    GuideRowKind kind = GuideRowKind::Text;
+    std::vector<std::string> cells;
+    size_t tableRow = 0;
+};
+
 Layout layoutFor(int width, int height) {
     Layout layout;
     layout.close = {width - 58, 16, width - 18, 56};
@@ -899,23 +906,35 @@ struct OverlayHost::Impl {
             DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, selected ? FW_BOLD : FW_NORMAL);
     }
 
-    COLORREF rowColor(size_t tab) const {
+    COLORREF orbColor(const std::string& label) const {
+        const std::string value = lower(label);
+        if (value.find("renewal") != std::string::npos) return SiteRuneText;
+        if (value.find("conversion") != std::string::npos) return RGB(204, 102, 0);
+        if (value.find("assemblage") != std::string::npos) return RGB(0, 145, 54);
+        if (value.find("infusion") != std::string::npos) return RGB(230, 183, 0);
+        if (value.find("shadows") != std::string::npos) return RGB(139, 32, 210);
+        if (value.find("socketing") != std::string::npos) return RGB(25, 96, 190);
+        if (value.find("corruption") != std::string::npos) return RGB(215, 48, 39);
+        return SiteRuneText;
+    }
+
+    COLORREF rowColor(size_t tab, const std::string& label = {}) const {
         if (tab == 1) return SiteSetText;
         if (tab == 3) return SiteRuneText;
         if (tab == 4) return SiteSocketText;
         if (tab == 5) return SiteMagicText;
         if (tab == 6) return SiteUniqueText;
-        if (tab == 7) return SiteRuneText;
+        if (tab == 7) return orbColor(label);
         return SiteUniqueText;
     }
 
-    COLORREF titleColor(size_t tab) const {
+    COLORREF titleColor(size_t tab, const std::string& label = {}) const {
         if (tab == 1) return SiteSetText;
         if (tab == 3) return SiteRuneText;
         if (tab == 4) return SiteSocketText;
         if (tab == 5) return SiteMagicText;
         if (tab == 6) return SiteUniqueText;
-        if (tab == 7) return SiteRuneText;
+        if (tab == 7) return orbColor(label);
         return SiteUniqueText;
     }
 
@@ -974,6 +993,179 @@ struct OverlayHost::Impl {
         return static_cast<int>(maximum);
     }
 
+    bool guideHeading(const std::string& value) const {
+        bool letter = false;
+        for (const unsigned char ch : value) {
+            if (ch >= 'a' && ch <= 'z') return false;
+            if (ch >= 'A' && ch <= 'Z') letter = true;
+        }
+        return letter;
+    }
+
+    std::vector<GuideVisualRow> guideRows(const Record& record) const {
+        std::vector<GuideVisualRow> rows;
+        std::vector<std::string> footnotes;
+        for (const auto& line : record.lines) {
+            if (line.empty()) continue;
+            if (line.starts_with("*") || line.starts_with("^") || line.starts_with("100% ")) {
+                footnotes.push_back(line);
+                continue;
+            }
+            rows.push_back({guideHeading(line) ? GuideRowKind::Heading : GuideRowKind::Text, {line}, 0});
+        }
+        size_t stripe = 0;
+        for (const auto& table : record.guideTables) {
+            if (!table.title.empty()) rows.push_back({GuideRowKind::Heading, {table.title}, 0});
+            if (!table.headers.empty()) rows.push_back({GuideRowKind::Header, table.headers, 0});
+            for (const auto& data : table.rows) rows.push_back({GuideRowKind::Data, data, stripe++});
+        }
+        for (const auto& line : footnotes) rows.push_back({GuideRowKind::Text, {line}, 0});
+        return rows;
+    }
+
+    std::vector<int> guideColumnEdges(const RECT& rect, const std::vector<std::string>& cells) const {
+        const int count = std::max<int>(1, static_cast<int>(cells.size()));
+        const int width = rect.right - rect.left;
+        std::vector<int> edges(static_cast<size_t>(count + 1), rect.left);
+        const auto equals = std::find(cells.begin(), cells.end(), "=");
+        if (count == 2) {
+            edges[1] = rect.left + width * 76 / 100;
+        } else if (equals != cells.end() && count >= 3) {
+            const int eq = static_cast<int>(std::distance(cells.begin(), equals));
+            const int equalsWidth = std::max(34, width * 5 / 100);
+            const int resultWidth = std::max(180, width * 31 / 100);
+            const int reagentWidth = std::max(1, (width - equalsWidth - resultWidth) / std::max(1, count - 2));
+            for (int index = 1; index <= eq; ++index) edges[static_cast<size_t>(index)] = rect.left + reagentWidth * index;
+            edges[static_cast<size_t>(eq + 1)] = edges[static_cast<size_t>(eq)] + equalsWidth;
+            for (int index = eq + 2; index < count; ++index)
+                edges[static_cast<size_t>(index)] = edges[static_cast<size_t>(eq + 1)] +
+                    (width - (edges[static_cast<size_t>(eq + 1)] - rect.left)) * (index - eq - 1) / (count - eq - 1);
+        } else {
+            for (int index = 1; index < count; ++index) edges[static_cast<size_t>(index)] = rect.left + width * index / count;
+        }
+        edges.back() = rect.right;
+        return edges;
+    }
+
+    int measuredGuideRowHeight(HDC dc, const RECT& rect, const GuideVisualRow& row) const {
+        if (row.cells.empty()) return 0;
+        if (row.kind == GuideRowKind::Heading) return 44;
+        if (row.kind == GuideRowKind::Header) return 48;
+        if (row.kind == GuideRowKind::Text) {
+            RECT measured{rect.left + 12, 0, rect.right - 24, 120};
+            const auto converted = wide(row.cells.front());
+            const HFONT selected = font(DetailTextPixels, row.cells.front().starts_with("*") ? FW_BOLD : FW_NORMAL);
+            const auto old = SelectObject(dc, selected);
+            DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured,
+                DT_WORDBREAK | DT_LEFT | DT_NOPREFIX | DT_CALCRECT);
+            SelectObject(dc, old); DeleteObject(selected);
+            return std::clamp<int>(measured.bottom - measured.top + 12, 32, 130);
+        }
+        const auto edges = guideColumnEdges(rect, row.cells);
+        int height = 54;
+        for (size_t column = 0; column < row.cells.size(); ++column) {
+            RECT measured{edges[column] + 10, 0, edges[column + 1] - 10, 180};
+            const auto converted = wide(row.cells[column]);
+            const HFONT selected = font(DetailTextPixels);
+            const auto old = SelectObject(dc, selected);
+            DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured,
+                DT_WORDBREAK | DT_CENTER | DT_NOPREFIX | DT_CALCRECT);
+            SelectObject(dc, old); DeleteObject(selected);
+            height = std::max(height, static_cast<int>(measured.bottom - measured.top + 20));
+        }
+        return std::min(height, 154);
+    }
+
+    COLORREF guideTextColor(const std::string& value) const {
+        const std::string normalized = lower(value);
+        if (normalized.starts_with("orb of ") && value.size() < 64) return orbColor(value);
+        if (normalized.find("ruby") != std::string::npos) return RGB(225, 48, 55);
+        if (normalized.find("sapphire") != std::string::npos) return RGB(42, 126, 225);
+        if (normalized.find("emerald") != std::string::npos) return RGB(18, 174, 83);
+        if (normalized.find("topaz") != std::string::npos) return RGB(229, 181, 0);
+        if (normalized.find("amethyst") != std::string::npos) return RGB(162, 72, 205);
+        if (normalized.find("chaos onyx") != std::string::npos) return RGB(151, 67, 202);
+        if (normalized.find("skull") != std::string::npos) return RGB(145, 145, 145);
+        if (normalized.find("diamond") != std::string::npos) return RGB(240, 240, 240);
+        if (normalized.find("crafted") != std::string::npos) return RGB(210, 78, 20);
+        if (normalized.find("unique") != std::string::npos) return RGB(201, 116, 0);
+        if (normalized.find("rare") != std::string::npos) return RGB(232, 188, 0);
+        if (normalized.find("set ") != std::string::npos || normalized.find("(set)") != std::string::npos) return SiteSetText;
+        if (normalized.find("magic") != std::string::npos) return RGB(43, 116, 222);
+        if (normalized.find("gem (any)") != std::string::npos) return RGB(0, 155, 145);
+        if (normalized.find("white") != std::string::npos) return SiteBaseText;
+        if (value.starts_with("*") || normalized.starts_with("does not") || normalized.starts_with("do not"))
+            return SiteRequirementText;
+        return ParchmentText;
+    }
+
+    COLORREF guideNarrativeColor(const std::string& value) const {
+        const std::string normalized = lower(value);
+        if (value.starts_with("*") || value.starts_with("^") || normalized.starts_with("does not") ||
+            normalized.starts_with("do not") || normalized.starts_with("you must") ||
+            normalized.starts_with("be sure") || normalized.find("45% chance") != std::string::npos ||
+            normalized.starts_with("• 25%") || normalized.starts_with("• 10%"))
+            return SiteRequirementText;
+        if (normalized.find("55% chance") != std::string::npos || normalized.starts_with("• 1%") ||
+            normalized.starts_with("• 5-7%")) return SiteSetText;
+        return ParchmentText;
+    }
+
+    void drawGuideCell(HDC dc, const std::string& value, RECT rect, bool header) const {
+        const UINT flags = DT_WORDBREAK | DT_CENTER | DT_VCENTER | DT_NOPREFIX;
+        if (header || value.find('\n') == std::string::npos) {
+            text(dc, value, rect, header ? SiteSetText : guideTextColor(value), DetailTextPixels, flags,
+                header ? FW_BOLD : FW_NORMAL);
+            return;
+        }
+        std::vector<std::string> lines;
+        std::stringstream stream(value);
+        std::string line;
+        while (std::getline(stream, line)) lines.push_back(line);
+        const int height = std::max(1, static_cast<int>((rect.bottom - rect.top) / std::max<size_t>(1, lines.size())));
+        for (size_t index = 0; index < lines.size(); ++index) {
+            RECT part{rect.left, rect.top + static_cast<LONG>(index) * height, rect.right,
+                index + 1 == lines.size() ? rect.bottom : rect.top + static_cast<LONG>(index + 1) * height};
+            text(dc, lines[index], part, guideTextColor(lines[index]), DetailTextPixels, flags);
+        }
+    }
+
+    void drawGuideRows(HDC dc, RECT rect, const Record& record, int scroll) const {
+        const auto rows = guideRows(record);
+        int y = rect.top;
+        const int first = std::min<int>(scroll, static_cast<int>(rows.size()));
+        const HBRUSH border = CreateSolidBrush(RGB(91, 91, 88));
+        for (int index = first; index < static_cast<int>(rows.size()) && y < rect.bottom; ++index) {
+            const auto& row = rows[static_cast<size_t>(index)];
+            const int height = measuredGuideRowHeight(dc, rect, row);
+            if (row.kind == GuideRowKind::Text) {
+                RECT line{rect.left + 12, y, rect.right - 24, std::min<LONG>(rect.bottom, y + height)};
+                text(dc, row.cells.front(), line, guideNarrativeColor(row.cells.front()), DetailTextPixels,
+                    DT_WORDBREAK | DT_LEFT | DT_NOPREFIX,
+                    row.cells.front().starts_with("*") ? FW_BOLD : FW_NORMAL);
+            } else if (row.kind == GuideRowKind::Heading) {
+                RECT heading{rect.left + 8, y, rect.right - 18, std::min<LONG>(rect.bottom, y + height)};
+                text(dc, row.cells.front(), heading, SiteSetText, 20,
+                    DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, FW_BOLD);
+            } else {
+                const auto edges = guideColumnEdges(rect, row.cells);
+                const bool header = row.kind == GuideRowKind::Header;
+                const COLORREF fill = header ? RGB(67, 67, 64) :
+                    (row.tableRow % 2 == 0 ? RGB(28, 28, 27) : RGB(49, 49, 47));
+                for (size_t column = 0; column < row.cells.size(); ++column) {
+                    RECT cell{edges[column], y, edges[column + 1], std::min<LONG>(rect.bottom, y + height)};
+                    const HBRUSH background = CreateSolidBrush(fill);
+                    FillRect(dc, &cell, background); DeleteObject(background);
+                    FrameRect(dc, &cell, border);
+                    RECT label{cell.left + 8, cell.top + 4, cell.right - 8, cell.bottom - 4};
+                    drawGuideCell(dc, row.cells[column], label, header);
+                }
+            }
+            y += height;
+        }
+        DeleteObject(border);
+    }
+
     int measuredLineHeight(HDC dc, const RECT& rect, const std::string& value) const {
         RECT measured{rect.left + 8, 0, rect.right - 18, 54};
         const auto converted = wide(value);
@@ -993,32 +1185,45 @@ struct OverlayHost::Impl {
 
     ScrollMetrics currentScrollMetrics() const {
         ScrollMetrics metrics;
-        if (model.activeTab() == 3 || runeLootTableSelected() || window.load() == nullptr) return metrics;
-        const auto lines = selectedLines();
-        if (lines.empty()) return metrics;
+        if (model.activeTab() == 3 || window.load() == nullptr) return metrics;
         RECT client{};
         GetClientRect(window.load(), &client);
         RECT body = layoutFor(client.right, client.bottom).detail;
         body.left += 8;
         body.top += 60;
         body.right -= 8;
+        if (model.activeTab() >= Tabs.size()) body.right -= 22;
         const HDC dc = GetDC(window.load());
         if (dc == nullptr) return metrics;
         int totalHeight = 0;
         std::vector<int> heights;
-        heights.reserve(lines.size());
-        for (const auto& line : lines) {
-            const int height = measuredLineHeight(dc, body, line);
-            heights.push_back(height);
-            totalHeight += height;
+        if (model.activeTab() >= Tabs.size()) {
+            const auto* record = model.selectedRecord();
+            if (record == nullptr) { ReleaseDC(window.load(), dc); return metrics; }
+            const auto rows = guideRows(*record);
+            heights.reserve(rows.size());
+            for (const auto& row : rows) {
+                const int height = measuredGuideRowHeight(dc, body, row);
+                heights.push_back(height);
+                totalHeight += height;
+            }
+        } else {
+            const auto lines = selectedLines();
+            heights.reserve(lines.size());
+            for (const auto& line : lines) {
+                const int height = measuredLineHeight(dc, body, line);
+                heights.push_back(height);
+                totalHeight += height;
+            }
         }
         ReleaseDC(window.load(), dc);
+        if (heights.empty()) return metrics;
         const int viewport = body.bottom - body.top;
         if (totalHeight <= viewport) return metrics;
         int tailHeight = 0;
-        int maximum = static_cast<int>(lines.size());
-        for (int index = static_cast<int>(lines.size()) - 1; index >= 0; --index) {
-            if (tailHeight + heights[static_cast<size_t>(index)] > viewport && maximum < static_cast<int>(lines.size())) break;
+        int maximum = static_cast<int>(heights.size());
+        for (int index = static_cast<int>(heights.size()) - 1; index >= 0; --index) {
+            if (tailHeight + heights[static_cast<size_t>(index)] > viewport && maximum < static_cast<int>(heights.size())) break;
             tailHeight += heights[static_cast<size_t>(index)];
             maximum = index;
         }
@@ -1189,7 +1394,7 @@ struct OverlayHost::Impl {
         button(dc, layout.close, "X", false);
         static constexpr std::array<const char*, 8> labels{
             "UNIQUES", "SETS", "RUNEWORDS", "BASES",
-            "CUBE RECIPES", "ITEM ENCHANTS", "ITEM CRAFTING", "LOOT TABLE"};
+            "CUBE RECIPES", "ITEM ENCHANTS", "ITEM CRAFTING", "ORBS"};
         for (size_t tab = 0; tab < labels.size(); ++tab) button(dc, layout.tabs[tab], labels[tab], model.activeTab() == tab);
 
         if (model.activeTab() < Tabs.size() && !IsWindowVisible(searchEdit)) {
@@ -1222,7 +1427,8 @@ struct OverlayHost::Impl {
             countRect, RGB(238, 233, 217), 17, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         for (size_t row = 0; row < PrototypePageSize; ++row) {
             if (row < model.visibleCount(tab))
-                button(dc, layout.rows[row], model.labelAt(tab, row), model.selectedRow(tab) == row, true, rowColor(tab));
+                button(dc, layout.rows[row], model.labelAt(tab, row), model.selectedRow(tab) == row, true,
+                    rowColor(tab, model.labelAt(tab, row)));
         }
         button(dc, layout.previous, "PREVIOUS", false, page > 0);
         button(dc, layout.next, "NEXT", false, page + 1 < model.pageCount(tab));
@@ -1237,7 +1443,7 @@ struct OverlayHost::Impl {
             const auto* record = model.selectedRecord();
             const std::string titleText = tab == 1 || tab == 3 ? model.labelAt(tab, *selected) : record->name;
             RECT detailTitle{detail.left, detail.top, detail.right, detail.top + 55};
-            text(dc, titleText, detailTitle, titleColor(tab), 27,
+            text(dc, titleText, detailTitle, titleColor(tab, titleText), 27,
                 DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, FW_BOLD);
             RECT body{detail.left + 8, detail.top + 60, detail.right - 8, detail.bottom};
             if (tab == 3) {
@@ -1266,9 +1472,11 @@ struct OverlayHost::Impl {
                                 setItemNames.insert(setBonusDisplayText(property.text));
                     }
                 }
-                if (runeLootTableSelected())
-                    drawRuneTable(dc, body, lines);
-                else
+                if (tab >= Tabs.size()) {
+                    RECT guideBody = body;
+                    guideBody.right -= 22;
+                    drawGuideRows(dc, guideBody, *record, detailScroll);
+                } else
                     drawLines(dc, body, lines, detailScroll, tab < Tabs.size(),
                         tab == 1 ? &setItemNames : nullptr, SiteSetText);
                 const ScrollMetrics metrics = currentScrollMetrics();

@@ -61,7 +61,7 @@ mods/Reimagined/d2rloader/plugins/
 2. Enter a game and press Alt+S. Confirm the dark overlay appears over the D2R
    client without minimizing or pausing the game.
 3. Switch through Uniques, Sets, Runewords, Bases, Cube Recipes, Item Enchants,
-   Item Crafting, and Loot Table.
+   Item Crafting, and Orbs.
 4. Type in the search box and exercise each tab's dropdowns, checkboxes, and
    Reset Filters button. Confirm results and paging update immediately.
    Details use the website palettes: beige Unique and Runeword names, green Set
@@ -79,9 +79,10 @@ mods/Reimagined/d2rloader/plugins/
 8. On Bases, verify the Normal, Exceptional, and Elite members appear as
    separate columns when the family has all three.
 9. Close with X or Alt+S, reopen it, and repeat a page change.
-10. Verify recipe/enchant/crafting categories appear on the left, their complete
-    normalized wiki text appears on the right, and long sections scroll to the end.
-11. Verify Loot Table begins with Boss Definitions and ends with Runes.
+10. Verify recipe/enchant/crafting categories appear on the left, their tables retain
+    reagent and result columns, and long sections scroll to the end.
+11. Verify Orbs begins with Orb of Renewal and ends with Orb of Corruption. Confirm
+    Corruption contains affix tables for all nine gear groups and no location table.
 12. Check `d2rloader/logs/item-database.log` for overlay load errors.
 
 The four-tab build remains available at branch `stable/v0.3.10` and annotated

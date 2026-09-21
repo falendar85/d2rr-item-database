@@ -92,6 +92,55 @@ LRESULT CALLBACK searchSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPAR
     return result;
 }
 
+struct DropdownCursorState {
+    HCURSOR transparent = nullptr;
+    POINT position{-64, -64};
+    bool inside = false;
+};
+
+void drawDropdownCursor(HWND hwnd, const DropdownCursorState& state) {
+    if (!state.inside) return;
+    const HDC dc = GetDC(hwnd);
+    if (dc != nullptr) {
+        DrawIconEx(dc, state.position.x, state.position.y, arrowCursor(), 32, 32, 0, nullptr, DI_NORMAL);
+        ReleaseDC(hwnd, dc);
+    }
+}
+
+LRESULT CALLBACK dropdownListSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam,
+                                          UINT_PTR, DWORD_PTR refData) {
+    auto* state = reinterpret_cast<DropdownCursorState*>(refData);
+    if (message == WM_SETCURSOR) {
+        SetCursor(state->transparent);
+        return TRUE;
+    }
+    if (message == WM_MOUSEMOVE) {
+        const LRESULT result = DefSubclassProc(hwnd, message, wparam, lparam);
+        if (state->inside) {
+            RECT previous{state->position.x, state->position.y,
+                          state->position.x + 32, state->position.y + 32};
+            state->inside = false;
+            RedrawWindow(hwnd, &previous, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+        }
+        state->position = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        state->inside = true;
+        TRACKMOUSEEVENT tracking{sizeof(tracking), TME_LEAVE, hwnd, 0};
+        TrackMouseEvent(&tracking);
+        drawDropdownCursor(hwnd, *state);
+        return result;
+    }
+    if (message == WM_MOUSELEAVE) {
+        RECT previous{state->position.x, state->position.y,
+                      state->position.x + 32, state->position.y + 32};
+        state->inside = false;
+        RedrawWindow(hwnd, &previous, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+    }
+    const LRESULT result = DefSubclassProc(hwnd, message, wparam, lparam);
+    if (message == WM_PAINT) drawDropdownCursor(hwnd, *state);
+    if (message == WM_NCDESTROY) RemoveWindowSubclass(hwnd, dropdownListSubclassProc, 1);
+    return result;
+}
+
 LRESULT CALLBACK cursorWindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
     if (message == WM_NCHITTEST) return HTTRANSPARENT;
     if (message == WM_MOUSEACTIVATE) return MA_NOACTIVATE;
@@ -272,6 +321,7 @@ struct OverlayHost::Impl {
     POINT lastCursorPosition{-1, -1};
     std::array<std::string, 7> comboKeys{};
     std::array<std::vector<std::string>, 7> comboValues{};
+    std::array<DropdownCursorState, 7> dropdownCursorStates{};
 
     Impl(PrototypeViewModel& source, const D2RL::PluginContext* context) : model(source), plugin(context) {}
 
@@ -325,7 +375,7 @@ struct OverlayHost::Impl {
         RegisterClassExW(&cursorClass);
         gameWindow = findGameWindow(nullptr);
         const HWND handle = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, OverlayClass, L"D2RR Item Database",
-            WS_POPUP, 100, 100, 1200, 760, gameWindow, nullptr, instance, this);
+            WS_POPUP | WS_CLIPCHILDREN, 100, 100, 1200, 760, gameWindow, nullptr, instance, this);
         window = handle;
         SetEvent(ready);
         if (handle == nullptr) return;
@@ -507,10 +557,21 @@ struct OverlayHost::Impl {
     void maintainCursor() {
         if (!visible || !IsWindowVisible(window.load()) || cursorWindow == nullptr) return;
         if (dropdownActive) {
-            if (softwareCursorShown) ShowWindow(cursorWindow, SW_HIDE);
-            softwareCursorShown = false;
-            SetCursor(arrowCursor());
-            return;
+            POINT point{};
+            if (GetCursorPos(&point)) {
+                for (const HWND combo : filterCombos) {
+                    if (SendMessageW(combo, CB_GETDROPPEDSTATE, 0, 0) == 0) continue;
+                    COMBOBOXINFO info{sizeof(info)};
+                    RECT listRect{};
+                    if (GetComboBoxInfo(combo, &info) && info.hwndList != nullptr &&
+                        GetWindowRect(info.hwndList, &listRect) && PtInRect(&listRect, point)) {
+                        if (softwareCursorShown) ShowWindow(cursorWindow, SW_HIDE);
+                        softwareCursorShown = false;
+                        SetCursor(transparentCursor);
+                        return;
+                    }
+                }
+            }
         }
         POINT point{};
         RECT overlayRect{};
@@ -536,16 +597,12 @@ struct OverlayHost::Impl {
         dropdownActive = true;
         if (cursorWindow != nullptr) ShowWindow(cursorWindow, SW_HIDE);
         softwareCursorShown = false;
-        restoreCursorVisibility();
-        SetCursor(arrowCursor());
+        SetCursor(transparentCursor);
     }
 
     void endNativeDropdown() {
         dropdownActive = false;
-        if (visible) {
-            hideSystemCursor();
-            maintainCursor();
-        }
+        if (visible) maintainCursor();
     }
 
     void createControls(HWND parent) {
@@ -563,8 +620,11 @@ struct OverlayHost::Impl {
             SendMessageW(filterCombos[index], WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
             SetWindowSubclass(filterCombos[index], controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
             COMBOBOXINFO info{sizeof(info)};
-            if (GetComboBoxInfo(filterCombos[index], &info) && info.hwndList != nullptr)
-                SetWindowSubclass(info.hwndList, controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(arrowCursor()));
+            if (GetComboBoxInfo(filterCombos[index], &info) && info.hwndList != nullptr) {
+                dropdownCursorStates[index].transparent = transparentCursor;
+                SetWindowSubclass(info.hwndList, dropdownListSubclassProc, 1,
+                    reinterpret_cast<DWORD_PTR>(&dropdownCursorStates[index]));
+            }
         }
         hideVanilla = CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX,
             0, 0, 22, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(HideVanillaId)), GetModuleHandleW(nullptr), nullptr);

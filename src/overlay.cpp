@@ -25,7 +25,6 @@ constexpr UINT CursorMoveMessage = WM_APP + 0x243;
 constexpr UINT TrackingTimer = 1;
 constexpr UINT CursorTimer = 2;
 constexpr int SearchId = 4100;
-constexpr int SearchHintId = 4101;
 constexpr int ComboFirstId = 4110;
 constexpr int HideVanillaId = 4120;
 constexpr int ExactRunesId = 4121;
@@ -216,6 +215,7 @@ std::vector<std::string> recordLines(const Record& record, bool includePropertie
 struct Layout {
     RECT close{};
     std::array<RECT, 4> tabs{};
+    RECT search{};
     std::array<RECT, PrototypePageSize> rows{};
     RECT previous{}, next{}, detail{};
 };
@@ -236,6 +236,7 @@ Layout layoutFor(int width, int height) {
         layout.tabs[static_cast<size_t>(tab)] = {tabLeft + tab * tabWidth, tabTop, tabLeft + (tab + 1) * tabWidth, tabTop + tabHeight};
     const int listLeft = 38;
     const int listWidth = std::clamp(width * 27 / 100, 300, 430);
+    layout.search = {listLeft, 150, listLeft + listWidth, 184};
     const int rowsTop = 280;
     const int navigationHeight = 92;
     const int available = std::max(288, height - rowsTop - navigationHeight - 30);
@@ -287,7 +288,6 @@ struct OverlayHost::Impl {
     int scrollDragOffset = 0;
     HWND gameWindow = nullptr;
     HWND searchEdit = nullptr;
-    HWND searchHint = nullptr;
     std::array<HWND, 7> filterCombos{};
     HWND hideVanilla = nullptr;
     HWND hideVanillaLabel = nullptr;
@@ -415,7 +415,7 @@ struct OverlayHost::Impl {
             if (self->visible) {
                 ShowWindow(hwnd, SW_SHOW);
                 SetForegroundWindow(hwnd);
-                SetFocus(self->searchEdit);
+                SetFocus(hwnd);
                 self->hideSystemCursor();
                 self->maintainCursor();
                 InvalidateRect(hwnd, nullptr, FALSE);
@@ -449,7 +449,7 @@ struct OverlayHost::Impl {
         case WM_CTLCOLORBTN:
         case WM_CTLCOLORSTATIC: {
             const HDC controlDc = reinterpret_cast<HDC>(wparam);
-            SetTextColor(controlDc, reinterpret_cast<HWND>(lparam) == self->searchHint ? SearchHintText : ParchmentText);
+            SetTextColor(controlDc, ParchmentText);
             SetBkColor(controlDc, RGB(48, 47, 44));
             return reinterpret_cast<LRESULT>(self->controlBrush);
         }
@@ -595,16 +595,11 @@ struct OverlayHost::Impl {
     void createControls(HWND parent) {
         controlFont = font(16);
         controlBrush = CreateSolidBrush(RGB(48, 47, 44));
-        searchEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL,
+        searchEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL,
             0, 0, 100, 30, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(SearchId)), GetModuleHandleW(nullptr), nullptr);
         SendMessageW(searchEdit, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
         SendMessageW(searchEdit, EM_SETLIMITTEXT, 120, 0);
         SetWindowSubclass(searchEdit, searchSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
-        searchHint = CreateWindowExW(0, L"STATIC", L"Search name, property, base, or class...",
-            WS_CHILD | WS_VISIBLE | SS_NOTIFY | SS_LEFT | SS_CENTERIMAGE,
-            0, 0, 100, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(SearchHintId)), GetModuleHandleW(nullptr), nullptr);
-        SendMessageW(searchHint, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
-        SetWindowSubclass(searchHint, controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
         for (size_t index = 0; index < filterCombos.size(); ++index) {
             filterCombos[index] = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_TABSTOP | WS_BORDER |
                 CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL,
@@ -669,7 +664,7 @@ struct OverlayHost::Impl {
         const size_t tab = model.activeTab();
         const auto& filter = model.filters(tab);
         SetWindowTextW(searchEdit, wide(filter.text).c_str());
-        ShowWindow(searchHint, filter.text.empty() ? SW_SHOWNA : SW_HIDE);
+        ShowWindow(searchEdit, filter.text.empty() ? SW_HIDE : SW_SHOWNA);
         for (auto control : filterCombos) ShowWindow(control, SW_HIDE);
         ShowWindow(runeListLabel, SW_HIDE);
         ShowWindow(runeList, SW_HIDE);
@@ -729,8 +724,8 @@ struct OverlayHost::Impl {
         const Layout layout = layoutFor(client.right, client.bottom);
         const int listLeft = layout.rows[0].left;
         const int listWidth = layout.rows[0].right - layout.rows[0].left;
-        MoveWindow(searchEdit, listLeft, 150, listWidth, 34, TRUE);
-        MoveWindow(searchHint, listLeft + 5, 153, listWidth - 10, 28, TRUE);
+        MoveWindow(searchEdit, layout.search.left, layout.search.top,
+            layout.search.right - layout.search.left, layout.search.bottom - layout.search.top, TRUE);
         MoveWindow(hideVanilla, listLeft, 190, 22, 28, TRUE);
         MoveWindow(hideVanillaLabel, listLeft + 25, 190, 130, 28, TRUE);
         MoveWindow(exactRunes, listLeft + 160, 190, 22, 28, TRUE);
@@ -773,14 +768,15 @@ struct OverlayHost::Impl {
             std::string utf8(static_cast<size_t>(bytes), '\0');
             if (bytes > 0) WideCharToMultiByte(CP_UTF8, 0, value.data(), length, utf8.data(), bytes, nullptr, nullptr);
             filter.text = std::move(utf8);
-            ShowWindow(searchHint, filter.text.empty() ? SW_SHOWNA : SW_HIDE);
             changed = true;
         } else if (id == SearchId && notification == EN_KILLFOCUS) {
-            if (GetWindowTextLengthW(searchEdit) == 0) ShowWindow(searchHint, SW_SHOWNA);
-            return;
-        } else if (id == SearchHintId && notification == STN_CLICKED) {
-            ShowWindow(searchHint, SW_HIDE);
-            SetFocus(searchEdit);
+            if (GetWindowTextLengthW(searchEdit) == 0) {
+                ShowWindow(searchEdit, SW_HIDE);
+                RECT client{};
+                GetClientRect(window.load(), &client);
+                const RECT search = layoutFor(client.right, client.bottom).search;
+                InvalidateRect(window.load(), &search, FALSE);
+            }
             return;
         } else if (combo && notification == CBN_SELCHANGE) {
             const size_t index = static_cast<size_t>(id - ComboFirstId);
@@ -1102,6 +1098,24 @@ struct OverlayHost::Impl {
         static constexpr std::array<const char*, 4> labels{"UNIQUES", "SETS", "RUNEWORDS", "BASES"};
         for (size_t tab = 0; tab < labels.size(); ++tab) button(dc, layout.tabs[tab], labels[tab], model.activeTab() == tab);
 
+        if (!IsWindowVisible(searchEdit)) {
+            const HBRUSH searchBackground = CreateSolidBrush(RGB(48, 47, 44));
+            FillRect(dc, &layout.search, searchBackground);
+            DeleteObject(searchBackground);
+            const HPEN border = CreatePen(PS_SOLID, 1, RGB(105, 105, 100));
+            const auto oldPen = SelectObject(dc, border);
+            const auto oldBrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+            Rectangle(dc, layout.search.left, layout.search.top, layout.search.right, layout.search.bottom);
+            SelectObject(dc, oldBrush);
+            SelectObject(dc, oldPen);
+            DeleteObject(border);
+            RECT hint = layout.search;
+            hint.left += 6;
+            hint.right -= 6;
+            text(dc, "Search name, property, base, or class...", hint, SearchHintText, 16,
+                DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        }
+
         const size_t tab = model.activeTab();
         const size_t page = model.page(tab);
         const size_t first = page * model.pageSize() + 1;
@@ -1172,6 +1186,11 @@ struct OverlayHost::Impl {
         RECT client{}; GetClientRect(window.load(), &client);
         const Layout layout = layoutFor(client.right, client.bottom);
         if (contains(layout.close, x, y)) { hideOverlay(); return; }
+        if (contains(layout.search, x, y)) {
+            ShowWindow(searchEdit, SW_SHOW);
+            SetFocus(searchEdit);
+            return;
+        }
         for (size_t tab = 0; tab < layout.tabs.size(); ++tab) {
             if (contains(layout.tabs[tab], x, y) && model.switchTab(tab)) {
                 detailScroll = 0; syncControls(); InvalidateRect(window.load(), nullptr, FALSE); return;

@@ -162,8 +162,7 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         return D2RL::SharedEvents::UiMessageAction::Continue;
     }
     if (std::strcmp(event->text, "item-database/ItemDatabase") == 0) {
-        closePanel();
-        return D2RL::SharedEvents::UiMessageAction::Consume;
+        return D2RL::SharedEvents::UiMessageAction::Continue;
     }
     constexpr char ActionPrefix[] = "item-database/action/";
     if (std::strncmp(event->text, ActionPrefix, sizeof(ActionPrefix) - 1) != 0) {

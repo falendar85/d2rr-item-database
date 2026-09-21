@@ -48,10 +48,20 @@ Json rect(int x, int y, int width, int height) {
     return {{"x", x}, {"y", y}, {"width", width}, {"height", height}};
 }
 
-Json textWidget(std::string name, std::string text, Json bounds, std::string style = "$StyleModalDialogDescription") {
+Json textWidget(std::string name, std::string text, Json bounds, Json style = "$StyleModalDialogDescription") {
     return {{"type", "TextBoxWidget"}, {"name", std::move(name)}, {"fields", {
         {"rect", std::move(bounds)}, {"text", std::move(text)}, {"style", std::move(style)}
     }}};
+}
+
+Json detailTextStyle() {
+    return {
+        {"fontColor", "$ModalDescriptionTextColor"},
+        {"pointSize", "$SmallFontSize"},
+        {"alignment", {{"h", "center"}, {"v", "top"}}},
+        {"options", {{"lineWrap", true}, {"newlineHandling", "standard"}}},
+        {"spacing", "$ReducedSpacing"},
+    };
 }
 
 Json buttonWidget(std::string name, std::string text, Json bounds, std::string message) {
@@ -169,7 +179,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
         const auto detail = model.detailFor(row);
         Json detailChildren = Json::array();
         detailChildren.push_back(textWidget("DetailTitle" + std::to_string(row), detail.title, rect(10, 0, 860, 60), "$StyleSettingsTitle"));
-        detailChildren.push_back(textWidget("DetailText" + std::to_string(row), detailText(detail), rect(10, 65, 860, 590)));
+        detailChildren.push_back(textWidget("DetailText" + std::to_string(row), detailText(detail), rect(10, 65, 860, 610), detailTextStyle()));
         uniqueChildren.push_back({{"type", "Widget"}, {"name", "UniqueDetail" + std::to_string(row)},
                                   {"fields", {{"rect", rect(720, 55, 900, 680)}}}, {"children", std::move(detailChildren)}});
     }

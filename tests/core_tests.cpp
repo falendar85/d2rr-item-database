@@ -63,6 +63,8 @@ int main(int argc,char** argv){try{
     const auto* row=findNode(layout,"UniqueRow0");check(row!=nullptr&&findNode(layout,"UniqueRow1")==nullptr,"bounded layout rows");
     check((*row)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/select/0","native row message");
     check(findNode(layout,"UniqueDetail0")!=nullptr,"unique detail widget");
+    const auto* detailText=findNode(layout,"DetailText0");check(detailText!=nullptr&&(*detailText)["fields"]["style"]["alignment"]["v"]=="top","top-aligned detail text");
+    check((*detailText)["fields"]["style"]["pointSize"]=="$SmallFontSize","bounded detail font size");
     for(size_t i=1;i<4;++i)check(findNode(layout,"PlaceholderPane"+std::to_string(i))!=nullptr,"placeholder tab pane");
     std::cout<<checks<<" checks passed\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL after "<<checks<<": "<<e.what()<<"\n";return 1;}}

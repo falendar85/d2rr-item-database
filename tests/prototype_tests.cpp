@@ -55,6 +55,9 @@ int main(int argc, char** argv) {
             require(button != nullptr, "Unique row widget missing");
             require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row), "Unique row message invalid");
             require(findNode(layout, "UniqueDetail" + std::to_string(row)) != nullptr, "Unique detail widget missing");
+            const auto* detailText = findNode(layout, "DetailText" + std::to_string(row));
+            require(detailText != nullptr && (*detailText)["fields"]["style"]["alignment"]["v"] == "top", "detail text is not top aligned");
+            require((*detailText)["fields"]["style"]["pointSize"] == "$SmallFontSize", "detail text does not use the bounded font size");
         }
         require(findNode(layout, "UniqueRow8") == nullptr, "prototype rendered too many rows");
         std::cout << "Prototype smoke passed: " << database.records.size() << " records, "

@@ -58,7 +58,8 @@ int main(int argc,char** argv){try{
     check(prototype.switchTab(1)&&prototype.activeTab()==1,"set tab state");check(prototype.switchTab(2)&&prototype.activeTab()==2,"runeword tab state");check(prototype.switchTab(3)&&prototype.activeTab()==3,"base tab state");
     check(!prototype.switchTab(4)&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
     auto layout=Json::parse(buildPrototypeLayout(prototype));check(layout["type"]=="Panel"&&layout["name"]=="item-database/ItemDatabase","native panel layout root");
-    const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");
+    const auto* background=findNode(layout,"PanelBackground");check(background!=nullptr&&(*background)["fields"]["rect"]["width"]==2000&&(*background)["fields"]["rect"]["height"]==1040,"expanded panel background");
+    const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["rect"]["y"]==0,"raised close button");
     for(size_t i=0;i<4;++i){const auto* button=findNode(layout,"Tab"+std::to_string(i));check(button!=nullptr,"four tab buttons");check((*button)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/tab/"+std::string(Tabs[i]),"native tab message");}
     const auto* row=findNode(layout,"UniqueRow0");check(row!=nullptr&&findNode(layout,"UniqueRow1")==nullptr,"bounded layout rows");
     check((*row)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/select/0","native row message");

@@ -43,8 +43,12 @@ int main(int argc, char** argv) {
         require(layoutText.size() < 1024 * 1024, "prototype layout unexpectedly large");
         const auto layout = Json::parse(layoutText);
         require(layout["type"] == "Panel" && layout["name"] == "item-database/ItemDatabase", "panel root invalid");
+        const auto* background = findNode(layout, "PanelBackground");
+        require(background != nullptr && (*background)["fields"]["rect"]["width"] == 2000 && (*background)["fields"]["rect"]["height"] == 1040,
+                "expanded panel background invalid");
         const auto* close = findNode(layout, "CloseButton");
         require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
+        require((*close)["fields"]["rect"]["y"] == 0, "close button was not moved above the tab row");
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             const auto* button = findNode(layout, "Tab" + std::to_string(tab));
             require(button != nullptr, "tab widget missing");

@@ -163,7 +163,7 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t visibleRow) const {
 std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     Json anchorChildren = Json::array();
     anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 1700, 70), "$StyleSettingsTitle"));
-    anchorChildren.push_back(buttonWidget("CloseButton", "Close", rect(1460, 25, 190, 70), "PanelManager:ClosePanel:item-database/ItemDatabase"));
+    anchorChildren.push_back(buttonWidget("CloseButton", "Close", rect(1460, 0, 190, 70), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
         anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(80 + static_cast<int>(i) * 390, 115, 360, 72),
@@ -198,7 +198,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
         {"children", Json::array({
             {{"type", "RectangleWidget"}, {"name", "ScreenDim"}, {"fields", {{"fitToScreen", true}, {"color", Json::array({0.0, 0.0, 0.0, 0.82})}}},
              {"children", Json::array({{{"type", "ClickCatcherWidget"}, {"name", "ClickCatcher"}, {"fields", {{"fitToParent", true}}}}})}},
-            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-850, -460, 1700, 920)}, {"color", Json::array({0.055, 0.045, 0.03, 0.98})}}},
+            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-850, -460, 2000, 1040)}, {"color", Json::array({0.055, 0.045, 0.03, 0.98})}}},
              {"children", std::move(anchorChildren)}}
         })}
     };

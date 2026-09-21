@@ -1,4 +1,6 @@
 #include <itemdb/core.hpp>
+#include <itemdb/prototype.hpp>
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
@@ -6,6 +8,11 @@ using namespace itemdb;
 int checks=0;
 void check(bool b,const char* message){++checks;if(!b)throw std::runtime_error(message);}
 template<class F> void throws(F f,const char* msg){bool failed=false;try{f();}catch(const std::exception&){failed=true;}check(failed,msg);}
+const Json* findNode(const Json& node,const std::string& name){
+    if(node.is_object()&&node.value("name",std::string{})==name)return &node;
+    if(node.is_object()&&node.contains("children"))for(const auto& child:node["children"])if(auto* found=findNode(child,name))return found;
+    return nullptr;
+}
 int main(int argc,char** argv){try{
     check(argc==2,"fixture arg");auto db=Database::load(argv[1]);
     auto run=[&](std::string tab,std::string text,std::string f,std::string sort="name"){return execute(db,parseQuery(tab,text,f,sort));};
@@ -40,6 +47,21 @@ int main(int argc,char** argv){try{
     session.current().query.text="nothing";result=execute(db,session.current().query);session.reconcile(db,result);check(!session.current().selected,"clear stale selected item");throws([&]{session.switchTab(4);},"bad tab state");
     auto j=Json{{"schema_version",1},{"records",Json::array()}};throws([&]{Database::parse(j);},"empty data");throws([&]{Database::parse(Json::object());},"missing fields");throws([&]{Database::load("not-present-itemdb.json");},"missing file");
     std::ifstream in(argv[1]);in>>j;auto duplicate=j;j["records"].push_back(j["records"][0]);throws([&]{Database::parse(j);},"duplicate id");j=duplicate;j["records"][0]["properties"][0]["min_value"]=100;throws([&]{Database::parse(j);},"inverted range");j=duplicate;j["schema_version"]=2;throws([&]{Database::parse(j);},"version");j=duplicate;j["records"][0]["numbers"]["strength"]="bad";throws([&]{Database::parse(j);},"malformed number");
+    PrototypeViewModel prototype(db,1);check(prototype.uniqueCount()==2,"prototype unique count");check(prototype.visibleUniqueCount()==1,"bounded prototype page");
+    check(prototype.selectedUnique()!=nullptr&&prototype.selectedUnique()->name=="Alpha Axe","default unique selection");
+    auto detail=prototype.detailFor(0);check(detail.title=="Alpha Axe","detail title");
+    check(std::find(detail.lines.begin(),detail.lines.end(),"Base: Hatchet")!=detail.lines.end(),"detail base from normalized field");
+    check(std::find(detail.lines.begin(),detail.lines.end(),"Tier: Normal")!=detail.lines.end(),"detail tier from normalized field");
+    check(std::find(detail.lines.begin(),detail.lines.end(),"Required Level: 20")!=detail.lines.end(),"detail numeric from normalized field");
+    check(std::find(detail.lines.begin(),detail.lines.end(),"20% Increased Attack Speed")!=detail.lines.end(),"detail property line from normalized data");
+    check(!prototype.selectUnique(1)&&prototype.selectedUnique()->name=="Alpha Axe","invalid selection is safe");
+    check(prototype.switchTab(1)&&prototype.activeTab()==1,"set tab state");check(prototype.switchTab(2)&&prototype.activeTab()==2,"runeword tab state");check(prototype.switchTab(3)&&prototype.activeTab()==3,"base tab state");
+    check(!prototype.switchTab(4)&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
+    auto layout=Json::parse(buildPrototypeLayout(prototype));check(layout["type"]=="Panel"&&layout["name"]=="item-database/ItemDatabase","native panel layout root");
+    for(size_t i=0;i<4;++i)check(findNode(layout,"Tab"+std::to_string(i))!=nullptr,"four tab buttons");
+    check(findNode(layout,"UniqueRow0")!=nullptr&&findNode(layout,"UniqueRow1")==nullptr,"bounded layout rows");
+    check(findNode(layout,"UniqueDetail0")!=nullptr,"unique detail widget");
+    for(size_t i=1;i<4;++i)check(findNode(layout,"PlaceholderPane"+std::to_string(i))!=nullptr,"placeholder tab pane");
     std::cout<<checks<<" checks passed\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL after "<<checks<<": "<<e.what()<<"\n";return 1;}}
 

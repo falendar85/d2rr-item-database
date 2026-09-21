@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         require(layout["type"] == "Panel" && layout["name"] == "item-database/ItemDatabase", "panel root invalid");
         const auto* background = findNode(layout, "PanelBackground");
         require(background != nullptr && (*background)["fields"]["rect"]["width"] == 2688 && (*background)["fields"]["rect"]["height"] == 1240 &&
-                (*background)["fields"]["color"] == Json::array({0.0, 0.0, 0.0, 0.98}),
+                (*background)["fields"]["color"] == Json::array({0.055, 0.045, 0.03, 0.98}),
                 "expanded panel background invalid");
         const auto* close = findNode(layout, "CloseButton");
         require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
@@ -73,6 +73,8 @@ int main(int argc, char** argv) {
             require(button != nullptr, "tab widget missing");
             require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[tab]), "tab message invalid");
             require((*button)["fields"]["rect"]["x"] == 50 + static_cast<int>(tab) * 520, "tab borders are not evenly separated");
+            require((*button)["fields"]["rect"]["width"] == 520 && (*button)["fields"]["text/style"] == "$StyleFEMultiLineButtonText",
+                    "tab label is not centered in its full button frame");
         }
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             require(findNode(layout, "Pane" + std::to_string(tab)) != nullptr, "tab pane missing");
@@ -100,6 +102,12 @@ int main(int argc, char** argv) {
                     const auto* baseText = findNode(layout, "BaseText" + suffix + "_0");
                     require(baseText != nullptr, "base family detail missing");
                     require((*baseText)["fields"]["rect"]["width"] == 500, "base family columns were not widened");
+                    require((*baseText)["fields"]["style"]["alignment"]["h"] == "center", "base detail text is not centered");
+                    const auto* baseTitle = findNode(layout, "BaseTitle" + suffix + "_0");
+                    require(baseTitle != nullptr && (*baseTitle)["fields"]["rect"]["width"] == (*baseText)["fields"]["rect"]["width"] &&
+                            (*baseTitle)["fields"]["style"]["alignment"]["h"] == "center", "base title and detail column centers differ");
+                    if (const auto* secondCard = findNode(layout, "BaseCard" + suffix + "_1"))
+                        require((*secondCard)["fields"]["rect"]["x"] == 580, "base cards do not have the enlarged gutter");
                     require((*baseText)["fields"]["text"].get<std::string>().find("Automagic") == std::string::npos,
                             "base family detail still includes automagic overflow");
                 } else {

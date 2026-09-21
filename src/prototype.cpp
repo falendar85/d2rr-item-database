@@ -96,6 +96,7 @@ Json buttonWidget(std::string name, std::string text, Json bounds, std::string m
         {"focusIndicatorFilename", "Controller/HoverImages/ModalButton_Hover"},
         {"pressedFrame", 1}, {"disabledFrame", 2}, {"hoveredFrame", 3},
         {"textString", std::move(text)}, {"pointSize", "$MediumFontSize"},
+        {"text/style", "$StyleFEMultiLineButtonText"},
         {"onClickMessage", std::move(message)}, {"textColor", "$FontColorWhite"},
         {"acceptsReturnKey", true}, {"focusOnMouseOver", true}, {"sound", "select"}
     }}};
@@ -343,7 +344,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
-        anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(50 + static_cast<int>(i) * 520, 115, 360, 72),
+        anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(50 + static_cast<int>(i) * 520, 115, 520, 72),
                                               "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[i])));
     }
 
@@ -371,9 +372,9 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
                     cardChildren.push_back(textWidget("BaseTitle" + suffix + "_" + std::to_string(member), base->name, rect(0, 0, 500, 55), centeredTitleStyle()));
                     cardChildren.push_back(textWidget("BaseText" + suffix + "_" + std::to_string(member), detailText(compact), rect(0, 60, 500, 810), compactDetailTextStyle()));
                     cards.push_back({{"type", "Widget"}, {"name", "BaseCard" + suffix + "_" + std::to_string(member)},
-                        {"fields", {{"rect", rect(static_cast<int>(member) * 520, 0, 500, 880)}}}, {"children", std::move(cardChildren)}});
+                        {"fields", {{"rect", rect(static_cast<int>(member) * 580, 0, 500, 880)}}}, {"children", std::move(cardChildren)}});
                 }
-                children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1580, 900)}}}, {"children", std::move(cards)}});
+                children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1700, 900)}}}, {"children", std::move(cards)}});
                 continue;
             }
             const auto detail = model.detailFor(tab, row);
@@ -393,7 +394,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
         {"children", Json::array({
             {{"type", "RectangleWidget"}, {"name", "ScreenDim"}, {"fields", {{"fitToScreen", true}, {"color", Json::array({0.0, 0.0, 0.0, 0.82})}}},
              {"children", Json::array({{{"type", "ClickCatcherWidget"}, {"name", "ClickCatcher"}, {"fields", {{"fitToParent", true}}}}})}},
-            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-1120, -500, 2688, 1240)}, {"color", Json::array({0.0, 0.0, 0.0, 0.98})}}},
+            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-1120, -500, 2688, 1240)}, {"color", Json::array({0.055, 0.045, 0.03, 0.98})}}},
              {"children", std::move(anchorChildren)}}
         })}
     };

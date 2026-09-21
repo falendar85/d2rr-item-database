@@ -36,8 +36,23 @@ int main(int argc, char** argv) {
             const auto* selected = model.selectedRecord();
             require(!model.select(model.visibleCount(tab)), "invalid item selection was accepted");
             require(model.selectedRecord() == selected, "invalid selection changed state");
+            require(model.pageCount(tab) > 1 && model.page(tab) == 0, "tab paging unavailable");
+            require(!model.previousPage(), "first page moved backward");
+            const auto* firstRecord = model.recordAt(tab, 0);
+            require(model.nextPage() && model.page(tab) == 1, "next page failed");
+            require(model.selectedRow(tab) == 0 && model.selectedRecord() != firstRecord, "page change did not select its first item");
+            require(model.previousPage() && model.page(tab) == 0, "previous page failed");
+            require(model.switchPage(model.pageCount(tab) - 1), "last page switch failed");
+            require(model.visibleCount(tab) > 0 && model.visibleCount(tab) <= PrototypePageSize, "last page size invalid");
+            require(!model.nextPage(), "last page moved forward");
+            require(model.switchPage(0), "failed to restore first page");
         }
-        require(!model.switchTab(Tabs.size()) && model.activeTab() == Tabs.size() - 1, "invalid tab changed state");
+        require(model.switchTab(0) && model.nextPage(), "failed to retain a Unique page");
+        require(model.switchTab(1) && model.nextPage(), "failed to retain a Set page");
+        require(model.switchTab(0) && model.page(0) == 1, "Unique page was not retained across tabs");
+        require(model.switchPage(0) && model.switchTab(1) && model.switchPage(0), "failed to reset retained pages");
+        const size_t activeBeforeInvalidTab = model.activeTab();
+        require(!model.switchTab(Tabs.size()) && model.activeTab() == activeBeforeInvalidTab, "invalid tab changed state");
         PrototypeViewModel completeModel(database, database.records.size());
         size_t hadesRow = completeModel.count(1);
         for (size_t row = 0; row < completeModel.count(1); ++row) if (completeModel.labelAt(1, row) == "Hades' Underworld") hadesRow = row;
@@ -53,7 +68,7 @@ int main(int argc, char** argv) {
                 completeModel.groupRecordAt(3, targeRow, 2)->name == "Sacred Targe [E]", "base family tier order invalid");
         require(model.switchTab(0), "failed to return to Uniques");
         const auto layoutText = buildPrototypeLayout(model);
-        require(layoutText.size() < 1024 * 1024, "prototype layout unexpectedly large");
+        require(layoutText.size() < 64ull * 1024 * 1024, "prototype layout exceeds D2RLoader's resource limit");
         const auto layout = Json::parse(layoutText);
         require(layout["type"] == "Panel" && layout["name"] == "item-database/ItemDatabase", "panel root invalid");
         const auto* background = findNode(layout, "PanelBackground");
@@ -78,14 +93,25 @@ int main(int argc, char** argv) {
         }
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             require(findNode(layout, "Pane" + std::to_string(tab)) != nullptr, "tab pane missing");
-            const auto* count = findNode(layout, "Count" + std::to_string(tab));
+            require(findNode(layout, "Page" + std::to_string(tab) + "_0") != nullptr, "first tab page missing");
+            require(findNode(layout, "Page" + std::to_string(tab) + "_" + std::to_string(model.pageCount(tab) - 1)) != nullptr, "last tab page missing");
+            const auto* count = findNode(layout, "Count" + std::to_string(tab) + "_0");
             require(count != nullptr && (*count)["fields"]["rect"]["y"] == 20, "tab count was not lowered");
+            const auto pageSuffix = std::to_string(tab) + "_0";
+            const auto* previous = findNode(layout, "Previous" + pageSuffix);
+            const auto* next = findNode(layout, "Next" + pageSuffix);
+            const auto* pageNumber = findNode(layout, "PageNumber" + pageSuffix);
+            require(previous != nullptr && next != nullptr && pageNumber != nullptr, "page controls missing");
+            require((*previous)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/page/" +
+                std::string(Tabs[tab]) + "/0/previous", "previous page message invalid");
+            require((*next)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/page/" +
+                std::string(Tabs[tab]) + "/0/next", "next page message invalid");
             for (size_t row = 0; row < PrototypePageSize; ++row) {
-                const auto suffix = std::to_string(tab) + "_" + std::to_string(row);
+                const auto suffix = std::to_string(tab) + "_0_" + std::to_string(row);
                 const auto* button = findNode(layout, "Row" + suffix);
                 require(button != nullptr, "tab row widget missing");
                 require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" +
-                    std::string(Tabs[tab]) + "/" + std::to_string(row), "tab row message invalid");
+                    std::string(Tabs[tab]) + "/0/" + std::to_string(row), "tab row message invalid");
                 require((*button)["fields"]["rect"]["y"] == 85 + static_cast<int>(row) * 78, "tab row was not lowered");
                 require(findNode(layout, "Detail" + suffix) != nullptr, "tab detail widget missing");
                 if (tab == 1) {
@@ -118,7 +144,7 @@ int main(int argc, char** argv) {
                     require((*detailText)["fields"]["style"]["pointSize"] == "$SmallFontSize", "detail text does not use the bounded font size");
                 }
             }
-            require(findNode(layout, "Row" + std::to_string(tab) + "_8") == nullptr, "tab rendered too many rows");
+            require(findNode(layout, "Row" + std::to_string(tab) + "_0_8") == nullptr, "tab rendered too many rows per page");
         }
         std::cout << "Prototype smoke passed: " << database.records.size() << " records, "
                   << model.uniqueCount() << " Uniques, " << layoutText.size() << " layout bytes\n";

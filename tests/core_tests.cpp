@@ -55,6 +55,9 @@ int main(int argc,char** argv){try{
     check(std::find(detail.lines.begin(),detail.lines.end(),"Required Level: 20")!=detail.lines.end(),"detail numeric from normalized field");
     check(std::find(detail.lines.begin(),detail.lines.end(),"20% Increased Attack Speed")!=detail.lines.end(),"detail property line from normalized data");
     check(!prototype.selectUnique(1)&&prototype.selectedUnique()->name=="Alpha Axe","invalid selection is safe");
+    check(prototype.pageCount(0)==2&&prototype.page(0)==0,"prototype page count");check(!prototype.previousPage(),"previous boundary");
+    check(prototype.nextPage()&&prototype.page(0)==1&&prototype.selectedUnique()->name=="Omega Axe","next page selection");check(!prototype.nextPage(),"next boundary");
+    check(prototype.previousPage()&&prototype.page(0)==0,"return to first page");
     check(prototype.switchTab(1)&&prototype.activeTab()==1,"set tab state");check(prototype.switchTab(2)&&prototype.activeTab()==2,"runeword tab state");check(prototype.switchTab(3)&&prototype.activeTab()==3,"base tab state");
     check(!prototype.switchTab(4)&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
     auto layout=Json::parse(buildPrototypeLayout(prototype));check(layout["type"]=="Panel"&&layout["name"]=="item-database/ItemDatabase","native panel layout root");
@@ -62,13 +65,15 @@ int main(int argc,char** argv){try{
     const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["filename"]=="PANEL\\closebtn_4x"&&(*close)["fields"]["rect"]["x"]==2588,"corner X close button");check((*close)["fields"]["tooltipString"]=="@d2r:strClose","namespaced close tooltip");
     const auto* title=findNode(layout,"Title");check(title!=nullptr&&(*title)["fields"]["rect"]["width"]==2688&&(*title)["fields"]["style"]["alignment"]["h"]=="center","centered database title");
     for(size_t i=0;i<4;++i){const auto* button=findNode(layout,"Tab"+std::to_string(i));check(button!=nullptr,"four tab buttons");check((*button)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/tab/"+std::string(Tabs[i]),"native tab message");check((*button)["fields"]["rect"]["x"]==50+static_cast<int>(i)*520&&(*button)["fields"]["rect"]["width"]==520,"touching tab borders");check((*button)["fields"]["text/style"]=="$StyleFEMultiLineButtonText","centered tab text style");}
-    const auto* count=findNode(layout,"Count0");check(count!=nullptr&&(*count)["fields"]["rect"]["y"]==20,"lowered Unique count");
-    const auto* row=findNode(layout,"Row0_0");check(row!=nullptr&&findNode(layout,"Row0_1")==nullptr,"bounded layout rows");
+    const auto* count=findNode(layout,"Count0_0");check(count!=nullptr&&(*count)["fields"]["rect"]["y"]==20,"lowered Unique count");
+    const auto* row=findNode(layout,"Row0_0_0");check(row!=nullptr&&findNode(layout,"Row0_0_1")==nullptr,"bounded layout rows");
     check((*row)["fields"]["rect"]["y"]==85,"lowered Unique row");
-    check((*row)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/select/uniques/0","native row message");
-    check(findNode(layout,"Detail0_0")!=nullptr,"unique detail widget");
-    const auto* detailTitle=findNode(layout,"DetailTitle0_0");check(detailTitle!=nullptr&&(*detailTitle)["fields"]["style"]["alignment"]["h"]=="center","centered item title");
-    const auto* detailText=findNode(layout,"DetailText0_0");check(detailText!=nullptr&&(*detailText)["fields"]["style"]["alignment"]["v"]=="top","top-aligned detail text");
+    check((*row)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/select/uniques/0/0","native row message");
+    check(findNode(layout,"Page0_0")!=nullptr&&findNode(layout,"Page0_1")!=nullptr,"unique pages rendered");
+    check(findNode(layout,"Previous0_0")!=nullptr&&findNode(layout,"Next0_0")!=nullptr&&findNode(layout,"PageNumber0_0")!=nullptr,"page controls rendered");
+    check(findNode(layout,"Detail0_0_0")!=nullptr,"unique detail widget");
+    const auto* detailTitle=findNode(layout,"DetailTitle0_0_0");check(detailTitle!=nullptr&&(*detailTitle)["fields"]["style"]["alignment"]["h"]=="center","centered item title");
+    const auto* detailText=findNode(layout,"DetailText0_0_0");check(detailText!=nullptr&&(*detailText)["fields"]["style"]["alignment"]["v"]=="top","top-aligned detail text");
     check((*detailText)["fields"]["style"]["pointSize"]=="$SmallFontSize","bounded detail font size");
     for(size_t i=0;i<4;++i)check(findNode(layout,"Pane"+std::to_string(i))!=nullptr,"tab pane");
     std::cout<<checks<<" checks passed\n";return 0;

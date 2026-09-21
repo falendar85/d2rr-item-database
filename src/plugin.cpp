@@ -32,6 +32,7 @@ D2RL::Input::ActionHandle openAction = D2RL::Input::InvalidHandle;
 std::unique_ptr<itemdb::Database> database;
 std::unique_ptr<itemdb::PrototypeViewModel> model;
 std::string layout;
+bool pagesInitialized = false;
 
 void logResult(const char* prefix, uint32_t result) noexcept {
     if (pluginContext == nullptr) return;
@@ -84,14 +85,39 @@ bool applyView() {
         const std::string pane = "Pane" + std::to_string(tab);
         ok = setVisible(root, pane, active) && ok;
         ok = setEnabled(root, pane, active) && ok;
+        if (!pagesInitialized) {
+            for (size_t page = 0; page < model->pageCount(tab); ++page) {
+                const bool current = page == model->page(tab);
+                const std::string pageName = "Page" + std::to_string(tab) + "_" + std::to_string(page);
+                ok = setVisible(root, pageName, current) && ok;
+                ok = setEnabled(root, pageName, current) && ok;
+            }
+        }
         for (size_t row = 0; row < model->visibleCount(tab); ++row) {
-            const std::string suffix = std::to_string(tab) + "_" + std::to_string(row);
+            const std::string suffix = std::to_string(tab) + "_" + std::to_string(model->page(tab)) + "_" + std::to_string(row);
             const bool selected = active && model->selectedRow(tab) == row;
             ok = setEnabled(root, "Row" + suffix, active) && ok;
             ok = setVisible(root, "Detail" + suffix, selected) && ok;
             ok = setEnabled(root, "Detail" + suffix, selected) && ok;
         }
+        const std::string pageSuffix = std::to_string(tab) + "_" + std::to_string(model->page(tab));
+        ok = setEnabled(root, "Previous" + pageSuffix, active && model->page(tab) > 0) && ok;
+        ok = setEnabled(root, "Next" + pageSuffix, active && model->page(tab) + 1 < model->pageCount(tab)) && ok;
     }
+    if (ok) pagesInitialized = true;
+    return ok;
+}
+
+bool showPage(size_t tab, size_t oldPage, size_t newPage) {
+    if (pluginContext == nullptr || widgets == nullptr) return false;
+    D2RL::Widgets::WidgetHandle root = D2RL::Widgets::InvalidHandle;
+    if (widgets->findPanel(pluginContext, "item-database/ItemDatabase", &root) != D2RL::Widgets::Result::Success) return false;
+    const std::string oldName = "Page" + std::to_string(tab) + "_" + std::to_string(oldPage);
+    const std::string newName = "Page" + std::to_string(tab) + "_" + std::to_string(newPage);
+    bool ok = setVisible(root, oldName, false);
+    ok = setEnabled(root, oldName, false) && ok;
+    ok = setVisible(root, newName, true) && ok;
+    ok = setEnabled(root, newName, true) && ok;
     return ok;
 }
 
@@ -218,7 +244,19 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
             plugin->LogWarn("Item Database ignored a selection for an inactive tab");
             return D2RL::SharedEvents::UiMessageAction::Consume;
         }
-        const char* rowText = slash + 1;
+        const char* pageText = slash + 1;
+        const char* pageSlash = std::strchr(pageText, '/');
+        if (pageSlash == nullptr) {
+            plugin->LogWarn("Item Database ignored a malformed paged selection");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        size_t selectionPage = 0;
+        auto pageParsed = std::from_chars(pageText, pageSlash, selectionPage);
+        if (pageParsed.ec != std::errc{} || pageParsed.ptr != pageSlash || selectionPage != model->page(model->activeTab())) {
+            plugin->LogWarn("Item Database ignored a selection for an inactive page");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        const char* rowText = pageSlash + 1;
         size_t row = 0;
         const char* end = rowText + std::strlen(rowText);
         auto parsed = std::from_chars(rowText, end, row);
@@ -229,6 +267,40 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         const std::string message = "Item Database item selected: " + model->selectedRecord()->name;
         plugin->LogInfo(message.c_str());
         if (!applyView()) plugin->LogError("Item Database UI initialization failed while selecting an item");
+        else logSelectedDetail();
+        return D2RL::SharedEvents::UiMessageAction::Consume;
+    }
+    constexpr char PagePrefix[] = "page/";
+    if (std::strncmp(action, PagePrefix, sizeof(PagePrefix) - 1) == 0) {
+        const char* value = action + sizeof(PagePrefix) - 1;
+        const char* tabSlash = std::strchr(value, '/');
+        const char* pageSlash = tabSlash == nullptr ? nullptr : std::strchr(tabSlash + 1, '/');
+        if (tabSlash == nullptr || pageSlash == nullptr) {
+            plugin->LogWarn("Item Database ignored a malformed page message");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        const std::string tabName(value, tabSlash);
+        if (tabName != itemdb::Tabs[model->activeTab()]) {
+            plugin->LogWarn("Item Database ignored paging for an inactive tab");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        size_t sourcePage = 0;
+        auto parsed = std::from_chars(tabSlash + 1, pageSlash, sourcePage);
+        if (parsed.ec != std::errc{} || parsed.ptr != pageSlash || sourcePage != model->page(model->activeTab())) {
+            plugin->LogWarn("Item Database ignored paging from an inactive page");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        const std::string direction(pageSlash + 1);
+        const bool changed = direction == "previous" ? model->previousPage() : direction == "next" ? model->nextPage() : false;
+        if (!changed) {
+            plugin->LogWarn("Item Database ignored an invalid page change");
+            return D2RL::SharedEvents::UiMessageAction::Consume;
+        }
+        const size_t targetPage = model->page(model->activeTab());
+        const std::string message = "Item Database page changed: " + tabName + " " + std::to_string(targetPage + 1) + "/" +
+            std::to_string(model->pageCount(model->activeTab()));
+        plugin->LogInfo(message.c_str());
+        if (!showPage(model->activeTab(), sourcePage, targetPage) || !applyView()) plugin->LogError("Item Database UI failed while changing pages");
         else logSelectedDetail();
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }
@@ -355,5 +427,6 @@ D2RL_PLUGIN_EXPORT void D2RLoaderUnloadPlugin() noexcept {
     layout.clear();
     model.reset();
     database.reset();
+    pagesInitialized = false;
     pluginContext = nullptr;
 }

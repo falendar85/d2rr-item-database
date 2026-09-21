@@ -60,6 +60,8 @@ mods/Reimagined/d2rloader/plugins/
 3. Switch through Uniques, Sets, Runewords, and Bases.
 4. Type in the search box and exercise each tab's dropdowns, checkboxes, and
    Reset Filters button. Confirm results and paging update immediately.
+   Set details use the website palette: green set lines, blue magical
+   properties, gray base/stat lines, red requirements, and cyan rarity lines.
 5. Search Sets for `Afterlife`; confirm the result is Hades' Underworld and its
    complete member list remains visible.
 6. Use Previous and Next repeatedly on every tab. Verify the page number and

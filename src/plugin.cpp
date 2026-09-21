@@ -31,6 +31,9 @@ D2RL::SharedEvents::ListenerHandle messageListener = D2RL::SharedEvents::Invalid
 D2RL::Input::ActionHandle openAction = D2RL::Input::InvalidHandle;
 std::unique_ptr<itemdb::Database> database;
 std::unique_ptr<itemdb::PrototypeViewModel> model;
+uint64_t viewGeneration = 0;
+size_t viewApplyAttempts = 0;
+constexpr size_t MaxViewApplyAttempts = 16;
 
 struct PanelChunk {
     size_t tab = 0;
@@ -148,6 +151,47 @@ void logSelectedDetail() {
     pluginContext->LogInfo(message.c_str());
 }
 
+bool viewWidgetsReady() {
+    if (pluginContext == nullptr || widgets == nullptr || model == nullptr) return false;
+    auto* chunk = currentChunk();
+    if (chunk == nullptr) return false;
+    D2RL::Widgets::WidgetHandle root = D2RL::Widgets::InvalidHandle;
+    const std::string panelName = "item-database/" + chunk->localId;
+    if (widgets->findPanel(pluginContext, panelName.c_str(), &root) != D2RL::Widgets::Result::Success) return false;
+    D2RL::Widgets::WidgetHandle sentinel = D2RL::Widgets::InvalidHandle;
+    const std::string suffix = std::to_string(model->activeTab()) + "_" + std::to_string(model->page(model->activeTab()));
+    return widgets->findWidget(pluginContext, root, ("PageNumber" + suffix).c_str(), &sentinel) == D2RL::Widgets::Result::Success;
+}
+
+void applyOpenedViewOnUiThread(const D2RL::PluginContext* plugin, void* userData) noexcept;
+
+bool queueOpenedViewApply(const D2RL::PluginContext* plugin, uint64_t generation) {
+    if (plugin == nullptr || threads == nullptr) return false;
+    return threads->runOnUiThread(plugin, applyOpenedViewOnUiThread,
+        reinterpret_cast<void*>(static_cast<uintptr_t>(generation))) == D2RL::Threads::Result::Success;
+}
+
+void applyOpenedViewOnUiThread(const D2RL::PluginContext* plugin, void* userData) noexcept {
+    try {
+        const auto generation = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(userData));
+        if (plugin == nullptr || generation == 0 || generation != viewGeneration) return;
+        if (!viewWidgetsReady()) {
+            if (++viewApplyAttempts < MaxViewApplyAttempts && queueOpenedViewApply(plugin, generation)) return;
+            plugin->LogError("Item Database UI did not become ready after opening");
+            return;
+        }
+        if (!applyView()) plugin->LogError("Item Database UI initialization failed while applying initial visibility");
+        else logSelectedDetail();
+    } catch (const std::exception& error) {
+        if (plugin != nullptr) {
+            const std::string message = std::string("Item Database deferred UI initialization failure: ") + error.what();
+            plugin->LogError(message.c_str());
+        }
+    } catch (...) {
+        if (plugin != nullptr) plugin->LogError("Item Database deferred UI initialization failure: unknown exception");
+    }
+}
+
 void openPanelOnUiThread(const D2RL::PluginContext* plugin, void*) noexcept {
     try {
         if (plugin == nullptr || panels == nullptr) return;
@@ -162,8 +206,10 @@ void openPanelOnUiThread(const D2RL::PluginContext* plugin, void*) noexcept {
             return;
         }
         plugin->LogInfo("Item Database panel opened");
-        if (!applyView()) plugin->LogError("Item Database UI initialization failed while applying initial visibility");
-        else logSelectedDetail();
+        ++viewGeneration;
+        if (viewGeneration == 0) ++viewGeneration;
+        viewApplyAttempts = 0;
+        if (!queueOpenedViewApply(plugin, viewGeneration)) plugin->LogError("Item Database could not queue UI initialization");
     } catch (const std::exception& error) {
         if (plugin != nullptr) {
             const std::string message = std::string("Item Database UI initialization failure while opening: ") + error.what();
@@ -178,6 +224,7 @@ void closePanel() {
     if (pluginContext == nullptr || panels == nullptr) return;
     auto* chunk = currentChunk();
     if (chunk == nullptr) return;
+    ++viewGeneration;
     const auto result = panels->closePanel(pluginContext, chunk->panel);
     if (result == D2RL::Panels::Result::Success) pluginContext->LogInfo("Item Database panel closed");
     else logResult("Item Database panel close failed", static_cast<uint32_t>(result));
@@ -373,7 +420,8 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
         if (!requireService(plugin, &resources, D2RL::ResourceServiceRequiredSize, "resource") ||
             !requireService(plugin, &panels, D2RL::PanelServiceRequiredSize, "panel") ||
             !requireService(plugin, &widgets, D2RL::WidgetServiceRequiredSize, "widget") ||
-            !requireService(plugin, &events, D2RL::SharedEventServiceRequiredSize, "shared-event")) return false;
+            !requireService(plugin, &events, D2RL::SharedEventServiceRequiredSize, "shared-event") ||
+            !requireService(plugin, &threads, D2RL::ThreadServiceRequiredSize, "thread")) return false;
 
         const wchar_t* directory = D2RL::GetPluginDirectory(plugin);
         if (directory == nullptr) {
@@ -441,9 +489,7 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
         }
 
         if (plugin->QueryService(&input) == D2RL::ServiceQueryResult::Success &&
-            plugin->QueryService(&threads) == D2RL::ServiceQueryResult::Success &&
-            D2RL::HasInputServiceField(input, D2RL::InputServiceRequiredSize) &&
-            D2RL::HasThreadServiceField(threads, D2RL::ThreadServiceRequiredSize)) {
+            D2RL::HasInputServiceField(input, D2RL::InputServiceRequiredSize)) {
             const D2RL::Input::ActionRegistration action{
                 .structSize = D2RL::Input::ActionRegistrationSize,
                 .logicalId = "open-item-database",

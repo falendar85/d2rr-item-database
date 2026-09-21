@@ -7,7 +7,7 @@
 #include <set>
 
 namespace itemdb {
-static const std::set<std::string> Fields{"name","base","base_code","set","type","category","class","tier","origin","weapon_type","compatible_base"};
+static const std::set<std::string> Fields{"name","base","base_code","base_family","base_family_code","set","type","category","class","tier","origin","weapon_type","compatible_base"};
 static const std::set<std::string> Numbers{"required_level","strength","dexterity","min_damage","max_damage","avg_damage","weapon_speed","defense","max_sockets","sockets","rune_count","sockets_low","sockets_mid","sockets_high"};
 static bool compare(double a,Op op,double b) { switch(op){case Op::Eq:return a==b; case Op::Ge:return a>=b;case Op::Le:return a<=b;case Op::Gt:return a>b;case Op::Lt:return a<b;} return false; }
 static std::vector<std::string> split(const std::string& s,char delimiter) {std::vector<std::string> out; std::istringstream in(s); std::string t;while(std::getline(in,t,delimiter)) if(!(t=trim(t)).empty())out.push_back(lower(t));return out;}

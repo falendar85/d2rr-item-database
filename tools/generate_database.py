@@ -159,6 +159,10 @@ class Normalizer:
                 'tier':[self.tier(row if tab=='bases' else b)],
                 'origin':[{'Y':'Vanilla','N':'Reimagined'}.get(row.get('Vanilla'),'Unknown')],
                 'set':[self.t(row.get('SetName',''))]}
+        if tab=='bases':
+            family_codes=list(dict.fromkeys(row.get(k,'') for k in ('NormCode','UberCode','UltraCode') if row.get(k,'')))
+            fields['base_family_code']=[family_codes[0] if family_codes else code]
+            fields['base_family']=[self.t(self.bases[c].get('NameKey',c)) for c in family_codes if c in self.bases]
         nums={'required_level':row.get('RequiredLevel',0)}
         self.equipment(e,nums)
         # Omitted requirements are zero in keyed equipment, but unknown base metadata remains missing.

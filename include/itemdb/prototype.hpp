@@ -15,7 +15,8 @@ struct PrototypeDetail {
 
 class PrototypeViewModel {
     const Database* database_ = nullptr;
-    std::array<std::vector<size_t>, Tabs.size()> results_;
+    std::array<std::vector<std::vector<size_t>>, Tabs.size()> groups_;
+    std::array<std::vector<std::string>, Tabs.size()> labels_;
     size_t visibleLimit_ = PrototypePageSize;
     size_t activeTab_ = 0;
     std::array<std::optional<size_t>, Tabs.size()> selectedRows_;
@@ -32,6 +33,9 @@ public:
     std::optional<size_t> selectedRow() const { return selectedRows_[activeTab_]; }
     std::optional<size_t> selectedRow(size_t tab) const;
     const Record* recordAt(size_t tab, size_t visibleRow) const noexcept;
+    const Record* groupRecordAt(size_t tab, size_t visibleRow, size_t member) const noexcept;
+    size_t groupSize(size_t tab, size_t visibleRow) const noexcept;
+    const std::string& labelAt(size_t tab, size_t visibleRow) const;
     const Record* uniqueAt(size_t visibleRow) const noexcept { return recordAt(0, visibleRow); }
     const Record* selectedRecord() const noexcept;
     const Record* selectedUnique() const noexcept { return activeTab_ == 0 ? selectedRecord() : nullptr; }

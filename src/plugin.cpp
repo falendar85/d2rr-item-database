@@ -55,6 +55,21 @@ bool setVisible(D2RL::Widgets::WidgetHandle root, const std::string& name, bool 
     return true;
 }
 
+bool setEnabled(D2RL::Widgets::WidgetHandle root, const std::string& name, bool enabled) {
+    D2RL::Widgets::WidgetHandle handle = D2RL::Widgets::InvalidHandle;
+    auto result = widgets->findWidget(pluginContext, root, name.c_str(), &handle);
+    if (result != D2RL::Widgets::Result::Success) {
+        logResult(("Item Database widget not found: " + name).c_str(), static_cast<uint32_t>(result));
+        return false;
+    }
+    result = widgets->setWidgetEnabled(pluginContext, handle, enabled);
+    if (result != D2RL::Widgets::Result::Success) {
+        logResult(("Item Database widget enabled state failed: " + name).c_str(), static_cast<uint32_t>(result));
+        return false;
+    }
+    return true;
+}
+
 bool applyView() {
     if (pluginContext == nullptr || widgets == nullptr || model == nullptr) return false;
     D2RL::Widgets::WidgetHandle root = D2RL::Widgets::InvalidHandle;
@@ -65,10 +80,16 @@ bool applyView() {
     }
     bool ok = true;
     for (size_t tab = 0; tab < itemdb::Tabs.size(); ++tab) {
-        ok = setVisible(root, "Pane" + std::to_string(tab), model->activeTab() == tab) && ok;
+        const bool active = model->activeTab() == tab;
+        const std::string pane = "Pane" + std::to_string(tab);
+        ok = setVisible(root, pane, active) && ok;
+        ok = setEnabled(root, pane, active) && ok;
         for (size_t row = 0; row < model->visibleCount(tab); ++row) {
-            const bool selected = model->activeTab() == tab && model->selectedRow(tab) == row;
-            ok = setVisible(root, "Detail" + std::to_string(tab) + "_" + std::to_string(row), selected) && ok;
+            const std::string suffix = std::to_string(tab) + "_" + std::to_string(row);
+            const bool selected = active && model->selectedRow(tab) == row;
+            ok = setEnabled(root, "Row" + suffix, active) && ok;
+            ok = setVisible(root, "Detail" + suffix, selected) && ok;
+            ok = setEnabled(root, "Detail" + suffix, selected) && ok;
         }
     }
     return ok;

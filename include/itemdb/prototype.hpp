@@ -3,6 +3,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace itemdb {
@@ -28,6 +29,13 @@ struct CatalogFilters {
     bool exactRunes = false;
     bool hideVanilla = false;
 };
+
+enum class SetBonusKind { None, Shared, ItemSpecific };
+
+SetBonusKind classifySetBonus(std::string_view text);
+std::string setBonusDisplayText(std::string_view text);
+int setBonusRank(std::string_view text);
+void sortSetBonuses(std::vector<std::string>& bonuses);
 
 class PrototypeViewModel {
     const Database* database_ = nullptr;

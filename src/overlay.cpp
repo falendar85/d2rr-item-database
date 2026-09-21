@@ -910,18 +910,35 @@ struct OverlayHost::Impl {
         const auto row = model.selectedRow();
         if (!row) return lines;
         if (tab == 1) {
-            std::set<std::string> bonuses;
+            std::vector<std::string> bonuses;
+            std::set<std::string> seenBonuses;
             for (size_t member = 0; member < model.groupSize(tab, *row); ++member) {
                 const auto* record = model.groupRecordAt(tab, *row, member);
-                for (const auto& property : record->properties)
-                    if (!property.text.empty() && property.text.find("set bonus:") != std::string::npos) bonuses.insert(property.text);
+                for (const auto& property : record->properties) {
+                    if (property.text.empty() || classifySetBonus(property.text) != SetBonusKind::Shared) continue;
+                    const std::string display = setBonusDisplayText(property.text);
+                    if (seenBonuses.insert(display).second) bonuses.push_back(display);
+                }
             }
+            sortSetBonuses(bonuses);
             lines.emplace_back("SET BONUSES");
             lines.insert(lines.end(), bonuses.begin(), bonuses.end());
             for (size_t member = 0; member < model.groupSize(tab, *row); ++member) {
                 const auto* record = model.groupRecordAt(tab, *row, member);
                 lines.emplace_back(""); lines.push_back(record->name);
-                auto memberLines = recordLines(*record, true);
+                auto memberLines = recordLines(*record, false);
+                std::vector<std::string> ordinaryProperties;
+                std::vector<std::string> itemBonuses;
+                for (const auto& property : record->properties) {
+                    if (property.text.empty()) continue;
+                    const auto kind = classifySetBonus(property.text);
+                    if (kind == SetBonusKind::ItemSpecific) itemBonuses.push_back(setBonusDisplayText(property.text));
+                    else if (kind == SetBonusKind::None) ordinaryProperties.push_back(property.text);
+                }
+                sortSetBonuses(itemBonuses);
+                if (!ordinaryProperties.empty() || !itemBonuses.empty()) memberLines.emplace_back("Properties:");
+                memberLines.insert(memberLines.end(), ordinaryProperties.begin(), ordinaryProperties.end());
+                memberLines.insert(memberLines.end(), itemBonuses.begin(), itemBonuses.end());
                 lines.insert(lines.end(), memberLines.begin(), memberLines.end());
             }
             return lines;
@@ -1163,8 +1180,13 @@ struct OverlayHost::Impl {
                 const auto lines = selectedLines();
                 std::set<std::string> setItemNames;
                 if (tab == 1) {
-                    for (size_t member = 0; member < model.groupSize(tab, *selected); ++member)
-                        setItemNames.insert(model.groupRecordAt(tab, *selected, member)->name);
+                    for (size_t member = 0; member < model.groupSize(tab, *selected); ++member) {
+                        const auto* setRecord = model.groupRecordAt(tab, *selected, member);
+                        setItemNames.insert(setRecord->name);
+                        for (const auto& property : setRecord->properties)
+                            if (classifySetBonus(property.text) != SetBonusKind::None)
+                                setItemNames.insert(setBonusDisplayText(property.text));
+                    }
                 }
                 drawLines(dc, body, lines, detailScroll, true,
                     tab == 1 ? &setItemNames : nullptr, SiteSetText);

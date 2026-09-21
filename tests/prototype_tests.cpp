@@ -21,6 +21,24 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2, "database path argument required");
         const auto database = Database::load(argv[1]);
+        require(classifySetBonus("Partial set bonus: +3 Defense (2 items)") == SetBonusKind::Shared,
+                "partial set bonus was not classified as shared");
+        require(classifySetBonus("Full set bonus: +1 to Skills (full set)") == SetBonusKind::Shared,
+                "full set bonus was not classified as shared");
+        require(classifySetBonus("Item set bonus: +10 Life (3 set pieces)") == SetBonusKind::ItemSpecific,
+                "item set bonus was not classified as item-specific");
+        require(classifySetBonus("+25% Lightning Resistance") == SetBonusKind::None,
+                "ordinary property was classified as a set bonus");
+        require(setBonusDisplayText("Item set bonus: +10 Life (3 items)") == "+10 Life (3 items)",
+                "set bonus prefix was not removed");
+        std::vector<std::string> orderedBonuses{
+            "+4 to Shout (4 items)", "+2 to Skills (full set)", "+3 Defense (2 items)",
+            "+10 Life (3 set pieces)", "+20% Fire Absorb (full set)"};
+        sortSetBonuses(orderedBonuses);
+        require(orderedBonuses == std::vector<std::string>{
+            "+3 Defense (2 items)", "+10 Life (3 set pieces)", "+4 to Shout (4 items)",
+            "+2 to Skills (full set)", "+20% Fire Absorb (full set)"},
+            "set bonuses are not ordered by piece count with full-set bonuses last");
         PrototypeViewModel model(database);
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             require(model.switchTab(tab) && model.activeTab() == tab, "tab switch failed");

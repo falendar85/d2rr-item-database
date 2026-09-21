@@ -1,5 +1,6 @@
 #include <itemdb/prototype.hpp>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <iomanip>
 #include <map>
@@ -9,6 +10,45 @@
 #include <stdexcept>
 
 namespace itemdb {
+
+SetBonusKind classifySetBonus(std::string_view text) {
+    const std::string normalized = lower(std::string(text));
+    if (normalized.starts_with("item set bonus:")) return SetBonusKind::ItemSpecific;
+    if (normalized.find("set bonus:") != std::string::npos) return SetBonusKind::Shared;
+    return SetBonusKind::None;
+}
+
+std::string setBonusDisplayText(std::string_view text) {
+    const auto colon = text.find(':');
+    return colon == std::string_view::npos ? std::string(text) : trim(std::string(text.substr(colon + 1)));
+}
+
+int setBonusRank(std::string_view text) {
+    const std::string normalized = lower(std::string(text));
+    if (normalized.find("(full set)") != std::string::npos) return 10000;
+    size_t open = 0;
+    while ((open = normalized.find('(', open)) != std::string::npos) {
+        size_t cursor = open + 1;
+        int pieces = 0;
+        bool foundDigit = false;
+        while (cursor < normalized.size() && std::isdigit(static_cast<unsigned char>(normalized[cursor]))) {
+            foundDigit = true;
+            pieces = pieces * 10 + (normalized[cursor] - '0');
+            ++cursor;
+        }
+        if (foundDigit && (normalized.compare(cursor, 5, " item") == 0 ||
+                           normalized.compare(cursor, 10, " set piece") == 0)) return pieces;
+        ++open;
+    }
+    return 9000;
+}
+
+void sortSetBonuses(std::vector<std::string>& bonuses) {
+    std::stable_sort(bonuses.begin(), bonuses.end(), [](const std::string& left, const std::string& right) {
+        return setBonusRank(left) < setBonusRank(right);
+    });
+}
+
 namespace {
 std::string number(double value) {
     std::ostringstream out;
@@ -146,10 +186,13 @@ std::vector<std::string> setLines(const PrototypeViewModel& model, size_t row) {
     for (size_t member = 0; member < model.groupSize(1, row); ++member) {
         const auto* record = model.groupRecordAt(1, row, member);
         for (const auto& property : record->properties) {
-            if ((property.text.starts_with("Partial set bonus:") || property.text.starts_with("Full set bonus:")) &&
-                seenBonuses.insert(property.text).second) setBonuses.push_back(property.text);
+            if (classifySetBonus(property.text) == SetBonusKind::Shared) {
+                const auto display = setBonusDisplayText(property.text);
+                if (seenBonuses.insert(display).second) setBonuses.push_back(display);
+            }
         }
     }
+    sortSetBonuses(setBonuses);
     lines.emplace_back("SET BONUSES");
     lines.insert(lines.end(), setBonuses.begin(), setBonuses.end());
     for (size_t member = 0; member < model.groupSize(1, row); ++member) {
@@ -166,9 +209,14 @@ std::vector<std::string> setLines(const PrototypeViewModel& model, size_t row) {
         auto minimum = record->numbers.find("min_damage"), maximum = record->numbers.find("max_damage");
         if (minimum != record->numbers.end() && maximum != record->numbers.end()) lines.emplace_back("Damage: " + number(minimum->second) + "-" + number(maximum->second));
         addNumber(lines, *record, "defense", "Defense");
+        std::vector<std::string> itemBonuses;
         for (const auto& property : record->properties) {
-            if (!property.text.empty() && !property.text.starts_with("Partial set bonus:") && !property.text.starts_with("Full set bonus:")) lines.push_back(property.text);
+            const auto kind = classifySetBonus(property.text);
+            if (!property.text.empty() && kind == SetBonusKind::None) lines.push_back(property.text);
+            else if (kind == SetBonusKind::ItemSpecific) itemBonuses.push_back(setBonusDisplayText(property.text));
         }
+        sortSetBonuses(itemBonuses);
+        lines.insert(lines.end(), itemBonuses.begin(), itemBonuses.end());
     }
     return lines;
 }

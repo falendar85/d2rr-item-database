@@ -58,11 +58,13 @@ int main(int argc,char** argv){try{
     check(prototype.switchTab(1)&&prototype.activeTab()==1,"set tab state");check(prototype.switchTab(2)&&prototype.activeTab()==2,"runeword tab state");check(prototype.switchTab(3)&&prototype.activeTab()==3,"base tab state");
     check(!prototype.switchTab(4)&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
     auto layout=Json::parse(buildPrototypeLayout(prototype));check(layout["type"]=="Panel"&&layout["name"]=="item-database/ItemDatabase","native panel layout root");
-    const auto* background=findNode(layout,"PanelBackground");check(background!=nullptr&&(*background)["fields"]["rect"]["width"]==2000&&(*background)["fields"]["rect"]["height"]==1040,"expanded panel background");
-    const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["filename"]=="PANEL\\closebtn_4x"&&(*close)["fields"]["rect"]["x"]==1900,"corner X close button");check((*close)["fields"]["tooltipString"]=="@d2r:strClose","namespaced close tooltip");
-    const auto* title=findNode(layout,"Title");check(title!=nullptr&&(*title)["fields"]["rect"]["width"]==2000&&(*title)["fields"]["style"]["alignment"]["h"]=="center","centered database title");
-    for(size_t i=0;i<4;++i){const auto* button=findNode(layout,"Tab"+std::to_string(i));check(button!=nullptr,"four tab buttons");check((*button)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/tab/"+std::string(Tabs[i]),"native tab message");}
+    const auto* background=findNode(layout,"PanelBackground");check(background!=nullptr&&(*background)["fields"]["rect"]["width"]==2160&&(*background)["fields"]["rect"]["height"]==1040,"expanded panel background");
+    const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["filename"]=="PANEL\\closebtn_4x"&&(*close)["fields"]["rect"]["x"]==2060,"corner X close button");check((*close)["fields"]["tooltipString"]=="@d2r:strClose","namespaced close tooltip");
+    const auto* title=findNode(layout,"Title");check(title!=nullptr&&(*title)["fields"]["rect"]["width"]==2160&&(*title)["fields"]["style"]["alignment"]["h"]=="center","centered database title");
+    for(size_t i=0;i<4;++i){const auto* button=findNode(layout,"Tab"+std::to_string(i));check(button!=nullptr,"four tab buttons");check((*button)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/tab/"+std::string(Tabs[i]),"native tab message");check((*button)["fields"]["rect"]["x"]==50+static_cast<int>(i)*520,"separate tab borders");}
+    const auto* count=findNode(layout,"UniqueCount");check(count!=nullptr&&(*count)["fields"]["rect"]["y"]==20,"lowered Unique count");
     const auto* row=findNode(layout,"UniqueRow0");check(row!=nullptr&&findNode(layout,"UniqueRow1")==nullptr,"bounded layout rows");
+    check((*row)["fields"]["rect"]["y"]==85,"lowered Unique row");
     check((*row)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/action/select/0","native row message");
     check(findNode(layout,"UniqueDetail0")!=nullptr,"unique detail widget");
     const auto* detailTitle=findNode(layout,"DetailTitle0");check(detailTitle!=nullptr&&(*detailTitle)["fields"]["style"]["alignment"]["h"]=="center","centered item title");

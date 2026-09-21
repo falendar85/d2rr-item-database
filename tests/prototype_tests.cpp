@@ -44,25 +44,29 @@ int main(int argc, char** argv) {
         const auto layout = Json::parse(layoutText);
         require(layout["type"] == "Panel" && layout["name"] == "item-database/ItemDatabase", "panel root invalid");
         const auto* background = findNode(layout, "PanelBackground");
-        require(background != nullptr && (*background)["fields"]["rect"]["width"] == 2000 && (*background)["fields"]["rect"]["height"] == 1040,
+        require(background != nullptr && (*background)["fields"]["rect"]["width"] == 2160 && (*background)["fields"]["rect"]["height"] == 1040,
                 "expanded panel background invalid");
         const auto* close = findNode(layout, "CloseButton");
         require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
         require((*close)["fields"]["filename"] == "PANEL\\closebtn_4x", "native X close button missing");
         require((*close)["fields"]["tooltipString"] == "@d2r:strClose", "close tooltip is not game-namespaced");
-        require((*close)["fields"]["rect"]["x"] == 1900 && (*close)["fields"]["rect"]["y"] == 15, "close button is not in the upper-right corner");
+        require((*close)["fields"]["rect"]["x"] == 2060 && (*close)["fields"]["rect"]["y"] == 15, "close button is not in the upper-right corner");
         const auto* title = findNode(layout, "Title");
-        require(title != nullptr && (*title)["fields"]["rect"]["width"] == 2000 && (*title)["fields"]["style"]["alignment"]["h"] == "center",
+        require(title != nullptr && (*title)["fields"]["rect"]["width"] == 2160 && (*title)["fields"]["style"]["alignment"]["h"] == "center",
                 "database title is not centered across the panel");
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
             const auto* button = findNode(layout, "Tab" + std::to_string(tab));
             require(button != nullptr, "tab widget missing");
             require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[tab]), "tab message invalid");
+            require((*button)["fields"]["rect"]["x"] == 50 + static_cast<int>(tab) * 520, "tab borders are not evenly separated");
         }
+        const auto* count = findNode(layout, "UniqueCount");
+        require(count != nullptr && (*count)["fields"]["rect"]["y"] == 20, "Unique count was not lowered");
         for (size_t row = 0; row < PrototypePageSize; ++row) {
             const auto* button = findNode(layout, "UniqueRow" + std::to_string(row));
             require(button != nullptr, "Unique row widget missing");
             require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row), "Unique row message invalid");
+            require((*button)["fields"]["rect"]["y"] == 85 + static_cast<int>(row) * 78, "Unique row was not lowered");
             require(findNode(layout, "UniqueDetail" + std::to_string(row)) != nullptr, "Unique detail widget missing");
             const auto* detailTitle = findNode(layout, "DetailTitle" + std::to_string(row));
             require(detailTitle != nullptr && (*detailTitle)["fields"]["style"]["alignment"]["h"] == "center", "item title is not centered");

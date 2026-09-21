@@ -177,19 +177,19 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t visibleRow) const {
 
 std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     Json anchorChildren = Json::array();
-    anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2000, 70), centeredTitleStyle()));
-    anchorChildren.push_back(closeButtonWidget(rect(1900, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
+    anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2160, 70), centeredTitleStyle()));
+    anchorChildren.push_back(closeButtonWidget(rect(2060, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
-        anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(80 + static_cast<int>(i) * 390, 115, 360, 72),
+        anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(50 + static_cast<int>(i) * 520, 115, 360, 72),
                                               "PanelManager:ClosePanel:item-database/action/tab/" + std::string(Tabs[i])));
     }
 
     Json uniqueChildren = Json::array();
-    uniqueChildren.push_back(textWidget("UniqueCount", std::to_string(model.uniqueCount()) + " unique items loaded - first " + std::to_string(model.visibleUniqueCount()) + " shown", rect(45, 5, 650, 45)));
+    uniqueChildren.push_back(textWidget("UniqueCount", std::to_string(model.uniqueCount()) + " unique items loaded - first " + std::to_string(model.visibleUniqueCount()) + " shown", rect(45, 20, 650, 45)));
     for (size_t row = 0; row < model.visibleUniqueCount(); ++row) {
         const auto* record = model.uniqueAt(row);
-        uniqueChildren.push_back(buttonWidget("UniqueRow" + std::to_string(row), record->name, rect(45, 65 + static_cast<int>(row) * 78, 610, 65),
+        uniqueChildren.push_back(buttonWidget("UniqueRow" + std::to_string(row), record->name, rect(45, 85 + static_cast<int>(row) * 78, 610, 65),
                                               "PanelManager:ClosePanel:item-database/action/select/" + std::to_string(row)));
         const auto detail = model.detailFor(row);
         Json detailChildren = Json::array();
@@ -213,7 +213,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
         {"children", Json::array({
             {{"type", "RectangleWidget"}, {"name", "ScreenDim"}, {"fields", {{"fitToScreen", true}, {"color", Json::array({0.0, 0.0, 0.0, 0.82})}}},
              {"children", Json::array({{{"type", "ClickCatcherWidget"}, {"name", "ClickCatcher"}, {"fields", {{"fitToParent", true}}}}})}},
-            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-850, -460, 2000, 1040)}, {"color", Json::array({0.055, 0.045, 0.03, 0.98})}}},
+            {{"type", "RectangleWidget"}, {"name", "PanelBackground"}, {"fields", {{"anchor", {{"x", 0.5}, {"y", 0.5}}}, {"rect", rect(-850, -460, 2160, 1040)}, {"color", Json::array({0.055, 0.045, 0.03, 0.98})}}},
              {"children", std::move(anchorChildren)}}
         })}
     };

@@ -42,6 +42,8 @@ constexpr COLORREF SiteRequirementText = RGB(233, 107, 99);
 constexpr COLORREF SiteRarityText = RGB(99, 199, 239);
 constexpr COLORREF SiteRuneText = RGB(247, 241, 227);
 constexpr COLORREF SiteSocketText = RGB(188, 167, 125);
+constexpr int DetailTextPixels = 18;
+constexpr int DetailLineHeight = 29;
 
 HCURSOR arrowCursor() {
     static const HCURSOR cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
@@ -975,18 +977,23 @@ struct OverlayHost::Impl {
     int measuredLineHeight(HDC dc, const RECT& rect, const std::string& value) const {
         RECT measured{rect.left + 8, 0, rect.right - 18, 54};
         const auto converted = wide(value);
-        const HFONT selected = font(17);
+        const HFONT selected = font(DetailTextPixels);
         const auto old = SelectObject(dc, selected);
         DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured,
             DT_WORDBREAK | DT_CENTER | DT_NOPREFIX | DT_CALCRECT);
         SelectObject(dc, old);
         DeleteObject(selected);
-        return std::max<int>(27, measured.bottom - measured.top);
+        return std::max<int>(DetailLineHeight, measured.bottom - measured.top);
+    }
+
+    bool runeLootTableSelected() const {
+        const auto* record = model.selectedRecord();
+        return model.activeTab() == 7 && record != nullptr && lower(record->name) == "runes";
     }
 
     ScrollMetrics currentScrollMetrics() const {
         ScrollMetrics metrics;
-        if (model.activeTab() == 3 || window.load() == nullptr) return metrics;
+        if (model.activeTab() == 3 || runeLootTableSelected() || window.load() == nullptr) return metrics;
         const auto lines = selectedLines();
         if (lines.empty()) return metrics;
         RECT client{};
@@ -1088,7 +1095,7 @@ struct OverlayHost::Impl {
 
     int drawLines(HDC dc, RECT rect, const std::vector<std::string>& lines, int scroll, bool centered = true,
         const std::set<std::string>* accentLines = nullptr, COLORREF accentColor = ParchmentText) const {
-        const int lineHeight = 27;
+        const int lineHeight = DetailLineHeight;
         int y = rect.top;
         const int first = std::min<int>(scroll, static_cast<int>(lines.size()));
         for (int index = first; index < static_cast<int>(lines.size()) && y < rect.bottom; ++index) {
@@ -1096,7 +1103,7 @@ struct OverlayHost::Impl {
             const UINT flags = DT_WORDBREAK | (centered ? DT_CENTER : DT_LEFT) | DT_NOPREFIX;
             RECT measured = line;
             const auto converted = wide(lines[static_cast<size_t>(index)]);
-            const HFONT selected = font(17);
+            const HFONT selected = font(DetailTextPixels);
             const auto old = SelectObject(dc, selected);
             DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured, flags | DT_CALCRECT);
             SelectObject(dc, old); DeleteObject(selected);
@@ -1105,10 +1112,64 @@ struct OverlayHost::Impl {
             const auto& value = lines[static_cast<size_t>(index)];
             COLORREF color = accentLines != nullptr && accentLines->contains(value) ? accentColor : ParchmentText;
             color = detailLineColor(model.activeTab(), value, accentLines);
-            text(dc, value, line, color, 17, flags);
+            text(dc, value, line, color, DetailTextPixels, flags);
             y += height;
         }
         return static_cast<int>(lines.size());
+    }
+
+    void drawRuneTable(HDC dc, RECT body, const std::vector<std::string>& lines) const {
+        std::vector<std::array<std::string, 4>> rows;
+        for (const auto& line : lines) {
+            if (line.find('|') == std::string::npos) continue;
+            std::array<std::string, 4> cells{};
+            size_t start = 0;
+            bool valid = true;
+            for (size_t column = 0; column < cells.size(); ++column) {
+                const size_t end = column + 1 == cells.size() ? std::string::npos : line.find('|', start);
+                if (end == std::string::npos && column + 1 != cells.size()) { valid = false; break; }
+                std::string cell = line.substr(start, end == std::string::npos ? end : end - start);
+                const size_t first = cell.find_first_not_of(" \t");
+                const size_t last = cell.find_last_not_of(" \t");
+                cells[column] = first == std::string::npos ? std::string{} : cell.substr(first, last - first + 1);
+                start = end == std::string::npos ? line.size() : end + 1;
+            }
+            if (valid) rows.push_back(std::move(cells));
+        }
+        if (rows.empty()) return;
+
+        const int availableWidth = body.right - body.left;
+        const int tableWidth = std::min(820, std::max(420, availableWidth - 50));
+        const int left = body.left + (availableWidth - tableWidth) / 2;
+        const int availableHeight = body.bottom - body.top;
+        const int rowHeight = std::clamp(availableHeight / static_cast<int>(rows.size()), 34, 56);
+        const int tableHeight = rowHeight * static_cast<int>(rows.size());
+        const int top = body.top + std::max(0, (availableHeight - tableHeight) / 2);
+        const std::array<int, 5> edges{
+            left,
+            left + tableWidth * 32 / 100,
+            left + tableWidth * 58 / 100,
+            left + tableWidth * 76 / 100,
+            left + tableWidth
+        };
+        const HBRUSH border = CreateSolidBrush(RGB(91, 91, 88));
+        for (size_t row = 0; row < rows.size(); ++row) {
+            const int y = top + static_cast<int>(row) * rowHeight;
+            const COLORREF fill = row == 0 ? RGB(67, 67, 64) :
+                (row % 2 == 0 ? RGB(49, 49, 47) : RGB(28, 28, 27));
+            for (size_t column = 0; column < 4; ++column) {
+                RECT cell{edges[column], y, edges[column + 1], y + rowHeight};
+                const HBRUSH background = CreateSolidBrush(fill);
+                FillRect(dc, &cell, background);
+                DeleteObject(background);
+                FrameRect(dc, &cell, border);
+                RECT label{cell.left + 14, cell.top, cell.right - 8, cell.bottom};
+                text(dc, rows[row][column], label, row == 0 ? SiteSetText : ParchmentText,
+                    DetailTextPixels, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+                    row == 0 ? FW_BOLD : FW_NORMAL);
+            }
+        }
+        DeleteObject(border);
     }
 
     void paint(HWND hwnd) {
@@ -1205,8 +1266,11 @@ struct OverlayHost::Impl {
                                 setItemNames.insert(setBonusDisplayText(property.text));
                     }
                 }
-                drawLines(dc, body, lines, detailScroll, tab < Tabs.size(),
-                    tab == 1 ? &setItemNames : nullptr, SiteSetText);
+                if (runeLootTableSelected())
+                    drawRuneTable(dc, body, lines);
+                else
+                    drawLines(dc, body, lines, detailScroll, tab < Tabs.size(),
+                        tab == 1 ? &setItemNames : nullptr, SiteSetText);
                 const ScrollMetrics metrics = currentScrollMetrics();
                 detailScroll = std::clamp(detailScroll, 0, metrics.maximum);
                 if (metrics.visible) {

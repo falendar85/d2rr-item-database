@@ -40,6 +40,8 @@ constexpr COLORREF SiteMagicText = RGB(99, 119, 239);
 constexpr COLORREF SiteBaseText = RGB(181, 181, 181);
 constexpr COLORREF SiteRequirementText = RGB(233, 107, 99);
 constexpr COLORREF SiteRarityText = RGB(99, 199, 239);
+constexpr COLORREF SiteRuneText = RGB(247, 241, 227);
+constexpr COLORREF SiteSocketText = RGB(188, 167, 125);
 
 HCURSOR arrowCursor() {
     static const HCURSOR cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
@@ -834,13 +836,13 @@ struct OverlayHost::Impl {
 
     COLORREF rowColor(size_t tab) const {
         if (tab == 1) return SiteSetText;
-        if (tab == 3) return ParchmentText; // Base-family headings are parchment on the site.
+        if (tab == 3) return SiteRuneText;
         return SiteUniqueText;
     }
 
     COLORREF titleColor(size_t tab) const {
         if (tab == 1) return SiteSetText;
-        if (tab == 3) return ParchmentText;
+        if (tab == 3) return SiteRuneText;
         return SiteUniqueText;
     }
 
@@ -970,14 +972,18 @@ struct OverlayHost::Impl {
         }
     }
 
-    COLORREF setDetailColor(const std::string& value, const std::set<std::string>* itemNames) const {
-        if (itemNames != nullptr && itemNames->contains(value)) return SiteSetText;
+    COLORREF detailLineColor(size_t tab, const std::string& value,
+                             const std::set<std::string>* itemNames) const {
+        if (tab == 1 && itemNames != nullptr && itemNames->contains(value)) return SiteSetText;
         const std::string normalized = lower(value);
-        if (value == "SET BONUSES" || normalized.find("set bonus:") != std::string::npos)
+        if (tab == 1 && (value == "SET BONUSES" || normalized.find("set bonus:") != std::string::npos))
             return SiteSetText;
         if (normalized.starts_with("rarity:")) return SiteRarityText;
         if (normalized.starts_with("required ") || normalized.ends_with(" only)"))
             return SiteRequirementText;
+        if (tab == 2 && normalized.starts_with("runes:")) return SiteRuneText;
+        if (tab == 3 && (normalized.starts_with("sockets:") || normalized.starts_with("maximum sockets:")))
+            return SiteSocketText;
         static constexpr std::array<const char*, 14> basePrefixes{
             "base:", "set:", "runes:", "item type:", "category:", "tier:", "class:",
             "weapon type:", "damage:", "average damage:", "defense:", "sockets:",
@@ -987,6 +993,7 @@ struct OverlayHost::Impl {
             return normalized.starts_with(prefix);
         })) return SiteBaseText;
         if (value.empty()) return ParchmentText;
+        if (tab == 3) return SiteBaseText;
         return SiteMagicText;
     }
 
@@ -1008,7 +1015,7 @@ struct OverlayHost::Impl {
             line.bottom = std::min<LONG>(y + height, rect.bottom);
             const auto& value = lines[static_cast<size_t>(index)];
             COLORREF color = accentLines != nullptr && accentLines->contains(value) ? accentColor : ParchmentText;
-            if (model.activeTab() == 1) color = setDetailColor(value, accentLines);
+            color = detailLineColor(model.activeTab(), value, accentLines);
             text(dc, value, line, color, 17, flags);
             y += height;
         }

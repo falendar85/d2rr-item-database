@@ -60,8 +60,10 @@ mods/Reimagined/d2rloader/plugins/
 3. Switch through Uniques, Sets, Runewords, and Bases.
 4. Type in the search box and exercise each tab's dropdowns, checkboxes, and
    Reset Filters button. Confirm results and paging update immediately.
-   Set details use the website palette: green set lines, blue magical
-   properties, gray base/stat lines, red requirements, and cyan rarity lines.
+   Details use the website palettes: beige Unique and Runeword names, green Set
+   lines, near-white rune sequences and Base-family headings, beige individual
+   Base names, blue magical properties, gray base/stat lines, red requirements,
+   cyan rarity lines, and muted-gold Base socket capacities.
    The Runewords tab keeps its multi-select rune list permanently open; use its
    scrollbar to choose any combination of runes.
 5. Search Sets for `Afterlife`; confirm the result is Hades' Underworld and its

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "D2RR Item Database Offline Guides v1",
+  "type": "object",
+  "required": ["schema_version", "provenance", "records"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "provenance": {
+      "type": "object",
+      "required": ["repository", "revision", "source_hashes", "category_counts"]
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "tab", "name", "fields", "numbers", "properties", "display_lines", "source_ref", "search_text"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "tab": { "enum": ["cube-recipes", "item-enchants", "item-crafting", "loot-table"] },
+          "name": { "type": "string", "minLength": 1 },
+          "fields": { "type": "object" },
+          "numbers": { "type": "object" },
+          "properties": { "type": "array", "maxItems": 0 },
+          "display_lines": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "source_ref": {
+            "type": "object",
+            "required": ["file", "section"],
+            "properties": {
+              "file": { "type": "string", "minLength": 1 },
+              "section": { "type": "string", "minLength": 1 }
+            }
+          },
+          "search_text": { "type": "string" }
+        }
+      }
+    }
+  }
+}

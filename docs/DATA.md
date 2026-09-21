@@ -5,6 +5,12 @@ website's already-exported keyed catalogs. Its source commit and every input fil
 hash are stored in `upstream.lock.json` and in the generated database provenance.
 The game runtime never fetches or scrapes the website.
 
+`data/guides.json` is a separate reproducible offline snapshot generated from
+the pinned D2R Reimagined wiki revision. It contains category records for Cube
+Recipes, Item Enchants, Item Crafting, and Loot Table. HTML tables are flattened
+into readable recipe lines while headings, notes, lists, and source hashes are
+preserved.
+
 ## Regenerate
 
 Python 3.11 or newer is sufficient; the scripts use only the standard library.
@@ -22,6 +28,15 @@ script from the exact website commit in `upstream.lock.json`, caches them under
 `.deps/website-data/<commit>/`, records SHA-256 hashes, and then works locally.
 Pass `--revision <commit>` to intentionally build another revision. Review and
 update `upstream.lock.json` separately before committing that database.
+
+Regenerate the guide database from a pinned wiki checkout:
+
+```powershell
+python tools/generate_guides.py `
+  --source C:\path\to\wiki-content `
+  --output data\guides.json `
+  --revision 4293c6eba8dccb0968003ebda3d2efe30d3221d4
+```
 
 ## Normalized record
 

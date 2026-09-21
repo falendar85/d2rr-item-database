@@ -10,6 +10,8 @@
 namespace itemdb {
 using Json = nlohmann::json;
 inline constexpr std::array<const char*,4> Tabs{"uniques","sets","runewords","bases"};
+inline constexpr std::array<const char*,8> CatalogTabs{
+    "uniques","sets","runewords","bases","cube-recipes","item-enchants","item-crafting","loot-table"};
 struct Property {
     std::string id, name, text, scope;
     std::optional<double> min, max;

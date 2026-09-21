@@ -1,6 +1,7 @@
 #include <itemdb/prototype.hpp>
 #include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 
 using namespace itemdb;
@@ -19,8 +20,11 @@ const Json* findNode(const Json& node, const std::string& name) {
 
 int main(int argc, char** argv) {
     try {
-        require(argc == 2, "database path argument required");
-        const auto database = Database::load(argv[1]);
+        require(argc == 3, "database and guide paths required");
+        auto database = Database::load(argv[1]);
+        auto guides = Database::load(argv[2]);
+        database.records.insert(database.records.end(),
+            std::make_move_iterator(guides.records.begin()), std::make_move_iterator(guides.records.end()));
         require(classifySetBonus("Partial set bonus: +3 Defense (2 items)") == SetBonusKind::Shared,
                 "partial set bonus was not classified as shared");
         require(classifySetBonus("Full set bonus: +1 to Skills (full set)") == SetBonusKind::Shared,
@@ -40,10 +44,10 @@ int main(int argc, char** argv) {
             "+2 to Skills (full set)", "+20% Fire Absorb (full set)"},
             "set bonuses are not ordered by piece count with full-set bonuses last");
         PrototypeViewModel model(database);
-        for (size_t tab = 0; tab < Tabs.size(); ++tab) {
+        for (size_t tab = 0; tab < CatalogTabs.size(); ++tab) {
             require(model.switchTab(tab) && model.activeTab() == tab, "tab switch failed");
-            require(model.count(tab) > PrototypePageSize, "normalized tab records unavailable");
-            require(model.visibleCount(tab) == PrototypePageSize, "tab page is not bounded");
+            require(model.count(tab) > 0, "normalized tab records unavailable");
+            require(model.visibleCount(tab) == std::min(model.count(tab), PrototypePageSize), "tab page is not bounded");
             require(model.selectedRecord() == model.recordAt(tab, 0), "initial tab selection missing");
             for (size_t row = 0; row < model.visibleCount(tab); ++row) {
                 require(model.select(row), "valid item selection failed");
@@ -55,12 +59,14 @@ int main(int argc, char** argv) {
             const auto* selected = model.selectedRecord();
             require(!model.select(model.visibleCount(tab)), "invalid item selection was accepted");
             require(model.selectedRecord() == selected, "invalid selection changed state");
-            require(model.pageCount(tab) > 1 && model.page(tab) == 0, "tab paging unavailable");
+            require(model.page(tab) == 0, "tab did not begin on the first page");
             require(!model.previousPage(), "first page moved backward");
             const auto* firstRecord = model.recordAt(tab, 0);
-            require(model.nextPage() && model.page(tab) == 1, "next page failed");
-            require(model.selectedRow(tab) == 0 && model.selectedRecord() != firstRecord, "page change did not select its first item");
-            require(model.previousPage() && model.page(tab) == 0, "previous page failed");
+            if (model.pageCount(tab) > 1) {
+                require(model.nextPage() && model.page(tab) == 1, "next page failed");
+                require(model.selectedRow(tab) == 0 && model.selectedRecord() != firstRecord, "page change did not select its first item");
+                require(model.previousPage() && model.page(tab) == 0, "previous page failed");
+            } else require(!model.nextPage(), "single-page tab moved forward");
             require(model.switchPage(model.pageCount(tab) - 1), "last page switch failed");
             require(model.visibleCount(tab) > 0 && model.visibleCount(tab) <= PrototypePageSize, "last page size invalid");
             require(!model.nextPage(), "last page moved forward");
@@ -83,7 +89,13 @@ int main(int argc, char** argv) {
         require(model.switchTab(0) && model.page(0) == 1, "Unique page was not retained across tabs");
         require(model.switchPage(0) && model.switchTab(1) && model.switchPage(0), "failed to reset retained pages");
         const size_t activeBeforeInvalidTab = model.activeTab();
-        require(!model.switchTab(Tabs.size()) && model.activeTab() == activeBeforeInvalidTab, "invalid tab changed state");
+        require(!model.switchTab(CatalogTabs.size()) && model.activeTab() == activeBeforeInvalidTab, "invalid tab changed state");
+        require(model.count(4) == 8 && model.labelAt(4, 0) == "Socket Recipes", "cube recipe categories are incomplete");
+        require(model.count(5) == 9 && model.labelAt(5, 0) == "Amulets", "item enchant categories are incomplete");
+        require(model.count(6) == 12 && model.labelAt(6, 0) == "Amulets", "item crafting categories are incomplete");
+        require(model.count(7) == 4 && model.labelAt(7, 0) == "Boss Definitions", "loot table categories are incomplete");
+        require(model.switchTab(4) && model.detailFor(4, 0).lines.size() >= 8, "cube recipe details are missing");
+        require(model.switchTab(7) && model.detailFor(7, 0).lines.size() >= 20, "loot table details are missing");
         PrototypeViewModel completeModel(database, database.records.size());
         size_t hadesRow = completeModel.count(1);
         for (size_t row = 0; row < completeModel.count(1); ++row) if (completeModel.labelAt(1, row) == "Hades' Underworld") hadesRow = row;

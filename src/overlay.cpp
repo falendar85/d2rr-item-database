@@ -214,7 +214,7 @@ std::vector<std::string> recordLines(const Record& record, bool includePropertie
 
 struct Layout {
     RECT close{};
-    std::array<RECT, 4> tabs{};
+    std::array<RECT, CatalogTabs.size()> tabs{};
     RECT search{};
     std::array<RECT, PrototypePageSize> rows{};
     RECT previous{}, next{}, detail{};
@@ -232,12 +232,16 @@ Layout layoutFor(int width, int height) {
     layout.close = {width - 58, 16, width - 18, 56};
     const int tabLeft = 32, tabRight = width - 32, tabTop = 78, tabHeight = 58;
     const int tabWidth = (tabRight - tabLeft) / 4;
-    for (int tab = 0; tab < 4; ++tab)
-        layout.tabs[static_cast<size_t>(tab)] = {tabLeft + tab * tabWidth, tabTop, tabLeft + (tab + 1) * tabWidth, tabTop + tabHeight};
+    for (size_t tab = 0; tab < layout.tabs.size(); ++tab) {
+        const int column = static_cast<int>(tab % 4);
+        const int row = static_cast<int>(tab / 4);
+        layout.tabs[tab] = {tabLeft + column * tabWidth, tabTop + row * tabHeight,
+            tabLeft + (column + 1) * tabWidth, tabTop + (row + 1) * tabHeight};
+    }
     const int listLeft = 38;
     const int listWidth = std::clamp(width * 27 / 100, 300, 430);
-    layout.search = {listLeft, 150, listLeft + listWidth, 184};
-    const int rowsTop = 280;
+    layout.search = {listLeft, 208, listLeft + listWidth, 242};
+    const int rowsTop = 338;
     const int navigationHeight = 92;
     const int available = std::max(288, height - rowsTop - navigationHeight - 30);
     const int rowHeight = std::clamp(available / static_cast<int>(PrototypePageSize), 36, 58);
@@ -246,7 +250,7 @@ Layout layoutFor(int width, int height) {
     const int navTop = rowsTop + static_cast<int>(PrototypePageSize) * rowHeight + 4;
     layout.previous = {listLeft, navTop, listLeft + listWidth / 2 - 3, navTop + 46};
     layout.next = {listLeft + listWidth / 2 + 3, navTop, listLeft + listWidth, navTop + 46};
-    layout.detail = {listLeft + listWidth + 28, 270, width - 40, height - 35};
+    layout.detail = {listLeft + listWidth + 28, 328, width - 40, height - 35};
     return layout;
 }
 
@@ -664,10 +668,11 @@ struct OverlayHost::Impl {
         const size_t tab = model.activeTab();
         const auto& filter = model.filters(tab);
         SetWindowTextW(searchEdit, wide(filter.text).c_str());
-        ShowWindow(searchEdit, filter.text.empty() ? SW_HIDE : SW_SHOWNA);
+        ShowWindow(searchEdit, tab < Tabs.size() && !filter.text.empty() ? SW_SHOWNA : SW_HIDE);
         for (auto control : filterCombos) ShowWindow(control, SW_HIDE);
         ShowWindow(runeListLabel, SW_HIDE);
         ShowWindow(runeList, SW_HIDE);
+        ShowWindow(resetFilters, tab < Tabs.size() ? SW_SHOWNA : SW_HIDE);
         for (auto& key : comboKeys) key.clear();
         ShowWindow(hideVanilla, tab < 3 ? SW_SHOWNA : SW_HIDE);
         ShowWindow(hideVanillaLabel, tab < 3 ? SW_SHOWNA : SW_HIDE);
@@ -703,7 +708,7 @@ struct OverlayHost::Impl {
             }
             ShowWindow(runeListLabel, SW_SHOWNA);
             ShowWindow(runeList, SW_SHOWNA);
-        } else {
+        } else if (tab == 3) {
             configureCombo(0, "category", "ALL BASES", {"Weapon", "Armor"}, filter.category, {"WEAPONS", "ARMORS"});
             configureCombo(1, "type", "ALL ITEM TYPES", model.filterOptions(tab, "type"), filter.itemType);
             configureCombo(2, "class", "ALL CLASSES", model.filterOptions(tab, "class"), filter.itemClass);
@@ -726,11 +731,11 @@ struct OverlayHost::Impl {
         const int listWidth = layout.rows[0].right - layout.rows[0].left;
         MoveWindow(searchEdit, layout.search.left, layout.search.top,
             layout.search.right - layout.search.left, layout.search.bottom - layout.search.top, TRUE);
-        MoveWindow(hideVanilla, listLeft, 190, 22, 28, TRUE);
-        MoveWindow(hideVanillaLabel, listLeft + 25, 190, 130, 28, TRUE);
-        MoveWindow(exactRunes, listLeft + 160, 190, 22, 28, TRUE);
-        MoveWindow(exactRunesLabel, listLeft + 185, 190, 130, 28, TRUE);
-        MoveWindow(resetFilters, listLeft + listWidth - 135, 218, 135, 30, TRUE);
+        MoveWindow(hideVanilla, listLeft, 248, 22, 28, TRUE);
+        MoveWindow(hideVanillaLabel, listLeft + 25, 248, 130, 28, TRUE);
+        MoveWindow(exactRunes, listLeft + 160, 248, 22, 28, TRUE);
+        MoveWindow(exactRunesLabel, listLeft + 185, 248, 130, 28, TRUE);
+        MoveWindow(resetFilters, listLeft + listWidth - 135, 276, 135, 30, TRUE);
         const int left = layout.detail.left;
         const int available = layout.detail.right - layout.detail.left;
         const int gap = 8;
@@ -739,10 +744,10 @@ struct OverlayHost::Impl {
         for (size_t index = 0; index < filterCombos.size(); ++index) {
             const int column = static_cast<int>(index) % columns;
             const int row = static_cast<int>(index) / columns;
-            MoveWindow(filterCombos[index], left + column * (width + gap), 150 + row * 40, width, 300, TRUE);
+            MoveWindow(filterCombos[index], left + column * (width + gap), 208 + row * 40, width, 300, TRUE);
         }
-        MoveWindow(runeListLabel, left + 2 * (width + gap), 150, width, 20, TRUE);
-        MoveWindow(runeList, left + 2 * (width + gap), 172, width, 88, TRUE);
+        MoveWindow(runeListLabel, left + 2 * (width + gap), 208, width, 20, TRUE);
+        MoveWindow(runeList, left + 2 * (width + gap), 230, width, 88, TRUE);
     }
 
     void controlChanged(int id, int notification) {
@@ -895,12 +900,20 @@ struct OverlayHost::Impl {
     COLORREF rowColor(size_t tab) const {
         if (tab == 1) return SiteSetText;
         if (tab == 3) return SiteRuneText;
+        if (tab == 4) return SiteSocketText;
+        if (tab == 5) return SiteMagicText;
+        if (tab == 6) return SiteUniqueText;
+        if (tab == 7) return SiteRuneText;
         return SiteUniqueText;
     }
 
     COLORREF titleColor(size_t tab) const {
         if (tab == 1) return SiteSetText;
         if (tab == 3) return SiteRuneText;
+        if (tab == 4) return SiteSocketText;
+        if (tab == 5) return SiteMagicText;
+        if (tab == 6) return SiteUniqueText;
+        if (tab == 7) return SiteRuneText;
         return SiteUniqueText;
     }
 
@@ -1068,6 +1081,7 @@ struct OverlayHost::Impl {
             return normalized.starts_with(prefix);
         })) return SiteBaseText;
         if (value.empty()) return ParchmentText;
+        if (tab >= Tabs.size()) return ParchmentText;
         if (tab == 3) return SiteBaseText;
         return SiteMagicText;
     }
@@ -1112,10 +1126,12 @@ struct OverlayHost::Impl {
         text(dc, "D2R REIMAGINED ITEM DATABASE", title, RGB(221, 197, 137), 30,
             DT_CENTER | DT_VCENTER | DT_SINGLELINE, FW_BOLD);
         button(dc, layout.close, "X", false);
-        static constexpr std::array<const char*, 4> labels{"UNIQUES", "SETS", "RUNEWORDS", "BASES"};
+        static constexpr std::array<const char*, 8> labels{
+            "UNIQUES", "SETS", "RUNEWORDS", "BASES",
+            "CUBE RECIPES", "ITEM ENCHANTS", "ITEM CRAFTING", "LOOT TABLE"};
         for (size_t tab = 0; tab < labels.size(); ++tab) button(dc, layout.tabs[tab], labels[tab], model.activeTab() == tab);
 
-        if (!IsWindowVisible(searchEdit)) {
+        if (model.activeTab() < Tabs.size() && !IsWindowVisible(searchEdit)) {
             const HBRUSH searchBackground = CreateSolidBrush(RGB(48, 47, 44));
             FillRect(dc, &layout.search, searchBackground);
             DeleteObject(searchBackground);
@@ -1137,9 +1153,10 @@ struct OverlayHost::Impl {
         const size_t page = model.page(tab);
         const size_t first = page * model.pageSize() + 1;
         const size_t last = page * model.pageSize() + model.visibleCount(tab);
-        RECT countRect{40, 246, layout.detail.left - 15, 276};
-        const std::string countText = model.count(tab) == 0 ? "0 RESULTS" :
-            std::to_string(model.count(tab)) + " RESULTS - SHOWING " + std::to_string(first) + "-" + std::to_string(last);
+        RECT countRect{40, 304, layout.detail.left - 15, 334};
+        const std::string noun = tab < Tabs.size() ? " RESULTS" : " CATEGORIES";
+        const std::string countText = model.count(tab) == 0 ? "0" + noun :
+            std::to_string(model.count(tab)) + noun + " - SHOWING " + std::to_string(first) + "-" + std::to_string(last);
         text(dc, countText,
             countRect, RGB(238, 233, 217), 17, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         for (size_t row = 0; row < PrototypePageSize; ++row) {
@@ -1188,7 +1205,7 @@ struct OverlayHost::Impl {
                                 setItemNames.insert(setBonusDisplayText(property.text));
                     }
                 }
-                drawLines(dc, body, lines, detailScroll, true,
+                drawLines(dc, body, lines, detailScroll, tab < Tabs.size(),
                     tab == 1 ? &setItemNames : nullptr, SiteSetText);
                 const ScrollMetrics metrics = currentScrollMetrics();
                 detailScroll = std::clamp(detailScroll, 0, metrics.maximum);
@@ -1208,7 +1225,7 @@ struct OverlayHost::Impl {
         RECT client{}; GetClientRect(window.load(), &client);
         const Layout layout = layoutFor(client.right, client.bottom);
         if (contains(layout.close, x, y)) { hideOverlay(); return; }
-        if (contains(layout.search, x, y)) {
+        if (model.activeTab() < Tabs.size() && contains(layout.search, x, y)) {
             ShowWindow(searchEdit, SW_SHOW);
             SetFocus(searchEdit);
             return;

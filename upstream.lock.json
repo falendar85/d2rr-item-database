@@ -9,6 +9,11 @@
     "sha": "c7db0b49f6f75e1c15e808533572e4ac69be2db8",
     "branch": "master"
   },
+  "wiki": {
+    "repo": "D2R-Reimagined/wiki-content",
+    "sha": "4293c6eba8dccb0968003ebda3d2efe30d3221d4",
+    "branch": "main"
+  },
   "mod": {
     "repo": "D2R-Reimagined/d2r-reimagined-mod",
     "sha": "0148b1b9486d36640a48432921a82b203a7bad46",

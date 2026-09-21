@@ -39,13 +39,13 @@ void sortSetBonuses(std::vector<std::string>& bonuses);
 
 class PrototypeViewModel {
     const Database* database_ = nullptr;
-    std::array<std::vector<std::vector<size_t>>, Tabs.size()> groups_;
-    std::array<std::vector<std::string>, Tabs.size()> labels_;
+    std::array<std::vector<std::vector<size_t>>, CatalogTabs.size()> groups_;
+    std::array<std::vector<std::string>, CatalogTabs.size()> labels_;
     size_t visibleLimit_ = PrototypePageSize;
     size_t activeTab_ = 0;
-    std::array<size_t, Tabs.size()> pages_{};
-    std::array<std::optional<size_t>, Tabs.size()> selectedRows_;
-    std::array<CatalogFilters, Tabs.size()> filters_;
+    std::array<size_t, CatalogTabs.size()> pages_{};
+    std::array<std::optional<size_t>, CatalogTabs.size()> selectedRows_;
+    std::array<CatalogFilters, CatalogTabs.size()> filters_;
     void rebuild(size_t tab);
 public:
     explicit PrototypeViewModel(const Database&, size_t visibleLimit = PrototypePageSize);

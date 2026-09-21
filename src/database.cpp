@@ -16,7 +16,7 @@ Database Database::parse(const Json& j) {
     std::set<std::string> ids;
     for(const auto& x:j.at("records")) {
         Record r; r.id=string(x,"id"); r.name=string(x,"name"); r.tab=string(x,"tab");
-        if(std::find(Tabs.begin(),Tabs.end(),r.tab)==Tabs.end() || !ids.insert(r.id).second) throw std::runtime_error("Invalid tab or duplicate id: "+r.id);
+        if(std::find(CatalogTabs.begin(),CatalogTabs.end(),r.tab)==CatalogTabs.end() || !ids.insert(r.id).second) throw std::runtime_error("Invalid tab or duplicate id: "+r.id);
         r.fields=x.at("fields").get<decltype(r.fields)>();
         for(auto& [k,v]:r.fields) for(auto& s:v) s=lower(s);
         for(auto it=x.at("numbers").begin();it!=x.at("numbers").end();++it) {

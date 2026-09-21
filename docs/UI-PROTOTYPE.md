@@ -8,7 +8,8 @@ one fixed set of controls and draws the current records dynamically.
 
 ## Integration design
 
-At plugin load, `src/plugin.cpp` reads `item-database/database.json`, constructs
+At plugin load, `src/plugin.cpp` reads `item-database/database.json` and
+`item-database/guides.json`, constructs
 `PrototypeViewModel`, and starts `OverlayHost` on its own Windows UI thread. The
 overlay:
 
@@ -16,7 +17,8 @@ overlay:
 2. stays hidden until the D2RLoader `Open Item Database` action (Alt+S) is pressed;
 3. activates while open so its text search and dropdown controls receive normal
    keyboard and mouse input, then restores focus to D2R when closed;
-4. draws four tabs, site-matched per-tab filters, eight reusable result rows,
+4. draws two rows of four tabs, site-matched filters for the item catalogs,
+   eight reusable result rows,
    Previous/Next controls, the current page number, selected details, and a
    bounded draggable detail scrollbar;
 5. renders complete Set groups and all members of each Base family;
@@ -50,14 +52,16 @@ Copy only these files beneath the Reimagined mod directory:
 mods/Reimagined/d2rloader/plugins/
 ├── d2rl-item-database.dll
 └── item-database/
-    └── database.json
+    ├── database.json
+    └── guides.json
 ```
 
 1. Start D2RLoader with Reimagined and confirm `D2RR Item Database` appears in
    Extensions as a client plugin.
 2. Enter a game and press Alt+S. Confirm the dark overlay appears over the D2R
    client without minimizing or pausing the game.
-3. Switch through Uniques, Sets, Runewords, and Bases.
+3. Switch through Uniques, Sets, Runewords, Bases, Cube Recipes, Item Enchants,
+   Item Crafting, and Loot Table.
 4. Type in the search box and exercise each tab's dropdowns, checkboxes, and
    Reset Filters button. Confirm results and paging update immediately.
    Details use the website palettes: beige Unique and Runeword names, green Set
@@ -68,14 +72,20 @@ mods/Reimagined/d2rloader/plugins/
    scrollbar to choose any combination of runes.
 5. Search Sets for `Afterlife`; confirm the result is Hades' Underworld and its
    complete member list remains visible.
-6. Use Previous and Next repeatedly on every tab. Verify the page number and
+6. Use Previous and Next repeatedly on every tab that has multiple pages. Verify the page number and
    eight result rows update without overlapping or corrupting.
 7. On Sets, test both the mouse wheel and dragging the scrollbar thumb; confirm
    scrolling stops at both ends.
 8. On Bases, verify the Normal, Exceptional, and Elite members appear as
    separate columns when the family has all three.
 9. Close with X or Alt+S, reopen it, and repeat a page change.
-10. Check `d2rloader/logs/item-database.log` for overlay load errors.
+10. Verify recipe/enchant/crafting categories appear on the left, their complete
+    normalized wiki text appears on the right, and long sections scroll to the end.
+11. Verify Loot Table begins with Boss Definitions and ends with Runes.
+12. Check `d2rloader/logs/item-database.log` for overlay load errors.
+
+The four-tab build remains available at branch `stable/v0.3.10` and annotated
+tag `v0.3.10-stable`.
 
 ## Current verification boundary
 

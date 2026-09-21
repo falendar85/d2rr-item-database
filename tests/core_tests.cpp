@@ -56,7 +56,7 @@ int main(int argc,char** argv){try{
     check(std::find(detail.lines.begin(),detail.lines.end(),"20% Increased Attack Speed")!=detail.lines.end(),"detail property line from normalized data");
     check(!prototype.selectUnique(1)&&prototype.selectedUnique()->name=="Alpha Axe","invalid selection is safe");
     check(prototype.switchTab(1)&&prototype.activeTab()==1,"set tab state");check(prototype.switchTab(2)&&prototype.activeTab()==2,"runeword tab state");check(prototype.switchTab(3)&&prototype.activeTab()==3,"base tab state");
-    check(!prototype.switchTab(4)&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
+    check(!prototype.switchTab(CatalogTabs.size())&&prototype.activeTab()==3,"invalid tab is safe");check(prototype.switchTab(0),"return to unique tab");
     auto layout=Json::parse(buildPrototypeLayout(prototype));check(layout["type"]=="Panel"&&layout["name"]=="item-database/ItemDatabase","native panel layout root");
     const auto* background=findNode(layout,"PanelBackground");check(background!=nullptr&&(*background)["fields"]["rect"]["width"]==2688&&(*background)["fields"]["rect"]["height"]==1240&&(*background)["fields"]["color"][0]==0.055,"wider original-tint panel background");
     const auto* close=findNode(layout,"CloseButton");check(close!=nullptr&&(*close)["fields"]["onClickMessage"]=="PanelManager:ClosePanel:item-database/ItemDatabase","native close message");check((*close)["fields"]["filename"]=="PANEL\\closebtn_4x"&&(*close)["fields"]["rect"]["x"]==2588,"corner X close button");check((*close)["fields"]["tooltipString"]=="@d2r:strClose","namespaced close tooltip");

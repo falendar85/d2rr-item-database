@@ -8,7 +8,7 @@
 
 namespace itemdb {
 static const std::set<std::string> Fields{"name","base","base_code","base_family","base_family_code","set","type","category","class","tier","origin","weapon_type","compatible_base"};
-static const std::set<std::string> Numbers{"required_level","strength","dexterity","min_damage","max_damage","avg_damage","weapon_speed","defense","max_sockets","sockets","rune_count","sockets_low","sockets_mid","sockets_high"};
+static const std::set<std::string> Numbers{"required_level","strength","dexterity","min_damage","max_damage","avg_damage","weapon_speed","defense","max_sockets","sockets","rune_count","sockets_low","sockets_mid","sockets_high","order"};
 static bool compare(double a,Op op,double b) { switch(op){case Op::Eq:return a==b; case Op::Ge:return a>=b;case Op::Le:return a<=b;case Op::Gt:return a>b;case Op::Lt:return a<b;} return false; }
 static std::vector<std::string> split(const std::string& s,char delimiter) {std::vector<std::string> out; std::istringstream in(s); std::string t;while(std::getline(in,t,delimiter)) if(!(t=trim(t)).empty())out.push_back(lower(t));return out;}
 static bool containsAll(const std::vector<std::string>& have,const std::vector<std::string>& want) {
@@ -47,7 +47,7 @@ static bool matches(const Record& r,const Query& q,const std::vector<std::string
 Results execute(const Database& db,const Query& input) {
     auto start=std::chrono::steady_clock::now();
     Query q=input;
-    if(std::find(Tabs.begin(),Tabs.end(),q.tab)==Tabs.end())throw std::runtime_error("Unknown tab");
+    if(std::find(CatalogTabs.begin(),CatalogTabs.end(),q.tab)==CatalogTabs.end())throw std::runtime_error("Unknown tab");
     if(q.sort!="name"&&q.sort!="base"&&!Numbers.contains(q.sort))throw std::runtime_error("Unknown sort field");
     for(auto& [key,values]:q.any) { if(!Fields.contains(key))throw std::runtime_error("Unknown field: "+key);for(auto& v:values)v=lower(v); }
     for(auto& n:q.numeric)if(!Numbers.contains(n.field)||!std::isfinite(n.value))throw std::runtime_error("Invalid numeric filter");

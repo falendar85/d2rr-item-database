@@ -2,6 +2,7 @@
 #include <itemdb/overlay.hpp>
 #include <itemdb/prototype.hpp>
 #include <filesystem>
+#include <iterator>
 #include <memory>
 #include <string>
 
@@ -11,7 +12,7 @@ constexpr D2RL::PluginInfo PluginInfo {
     .abiVersion = D2RL_PLUGIN_ABI_VERSION,
     .id = "item-database",
     .name = "D2RR Item Database",
-    .version = "0.3.10",
+    .version = "0.4.0",
     .author = "Falendar & OpenAI Codex",
     .description = "Dynamic D2R Reimagined item database overlay.",
     .flags = D2RL::PluginFlags::Client,
@@ -59,6 +60,12 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
         auto databasePath = std::filesystem::path(directory) / L"item-database" / L"database.json";
         if (!std::filesystem::exists(databasePath)) databasePath = std::filesystem::path(directory) / L"database.json";
         database = std::make_unique<itemdb::Database>(itemdb::Database::load(databasePath));
+        auto guidePath = std::filesystem::path(directory) / L"item-database" / L"guides.json";
+        if (!std::filesystem::exists(guidePath)) guidePath = std::filesystem::path(directory) / L"guides.json";
+        auto guides = itemdb::Database::load(guidePath);
+        database->records.insert(database->records.end(),
+            std::make_move_iterator(guides.records.begin()), std::make_move_iterator(guides.records.end()));
+        database->provenance["guides"] = std::move(guides.provenance);
         model = std::make_unique<itemdb::PrototypeViewModel>(*database);
         overlay = std::make_unique<itemdb::OverlayHost>(*model, plugin);
         if (!overlay->start()) {

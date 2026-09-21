@@ -252,7 +252,7 @@ bool matchesCatalogFilter(const Record&, const CatalogFilters&);
 
 PrototypeViewModel::PrototypeViewModel(const Database& database, size_t visibleLimit)
     : database_(&database), visibleLimit_(std::max<size_t>(1, visibleLimit)) {
-    for (size_t tab = 0; tab < Tabs.size(); ++tab) rebuild(tab);
+    for (size_t tab = 0; tab < CatalogTabs.size(); ++tab) rebuild(tab);
 }
 
 void PrototypeViewModel::rebuild(size_t tab) {
@@ -262,9 +262,9 @@ void PrototypeViewModel::rebuild(size_t tab) {
     selectedRows_[tab].reset();
     const auto& filter = filters_[tab];
     Query query;
-    query.tab = Tabs[tab];
+    query.tab = CatalogTabs[tab];
     query.text = filter.text;
-    query.sort = "name";
+    query.sort = tab < Tabs.size() ? "name" : "order";
     if (!filter.itemType.empty()) query.any["type"] = {filter.itemType};
     if (!filter.equipment.empty()) query.any["base"] = {filter.equipment};
     if (!filter.itemClass.empty()) query.any["class"] = {filter.itemClass};
@@ -297,7 +297,7 @@ void PrototypeViewModel::rebuild(size_t tab) {
         std::map<std::string, std::pair<std::string, std::vector<size_t>>> grouped;
         for (size_t index = 0; index < database_->records.size(); ++index) {
             const auto& record = database_->records[index];
-            if (record.tab != Tabs[tab]) continue;
+            if (record.tab != CatalogTabs[tab]) continue;
             const char* field = tab == 1 ? "set" : "base_family_code";
             const auto found = record.fields.find(field);
             const std::string key = found == record.fields.end() || found->second.empty() ? record.id : lower(found->second.front());
@@ -342,30 +342,30 @@ void PrototypeViewModel::rebuild(size_t tab) {
 }
 
 CatalogFilters& PrototypeViewModel::filters(size_t tab) {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     return filters_[tab];
 }
 
 const CatalogFilters& PrototypeViewModel::filters(size_t tab) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     return filters_[tab];
 }
 
 bool PrototypeViewModel::applyFilters(size_t tab) {
-    if (tab >= Tabs.size()) return false;
+    if (tab >= CatalogTabs.size()) return false;
     rebuild(tab);
     return true;
 }
 
 bool PrototypeViewModel::resetFilters(size_t tab) {
-    if (tab >= Tabs.size()) return false;
+    if (tab >= CatalogTabs.size()) return false;
     filters_[tab] = {};
     rebuild(tab);
     return true;
 }
 
 std::vector<std::string> PrototypeViewModel::filterOptions(size_t tab, const std::string& field) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     const char* source = nullptr;
     if (field == "type") source = "type";
     else if (field == "equipment") source = "base";
@@ -374,7 +374,7 @@ std::vector<std::string> PrototypeViewModel::filterOptions(size_t tab, const std
     else throw std::out_of_range("Unknown catalog filter option field");
     std::map<std::string, std::string> ordered;
     for (const auto& record : database_->records) {
-        if (record.tab != Tabs[tab]) continue;
+        if (record.tab != CatalogTabs[tab]) continue;
         const auto found = record.fields.find(source);
         if (found == record.fields.end()) continue;
         for (const auto& value : found->second) if (!value.empty()) ordered.emplace(lower(value), titleCase(value));
@@ -386,7 +386,7 @@ std::vector<std::string> PrototypeViewModel::filterOptions(size_t tab, const std
 }
 
 size_t PrototypeViewModel::count(size_t tab) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     return groups_[tab].size();
 }
 
@@ -447,24 +447,24 @@ bool matchesCatalogFilter(const Record& record, const CatalogFilters& filter) {
 }
 
 size_t PrototypeViewModel::visibleCount(size_t tab, size_t targetPage) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     const size_t start = targetPage * visibleLimit_;
     if (start >= groups_[tab].size()) return 0;
     return std::min(visibleLimit_, groups_[tab].size() - start);
 }
 
 size_t PrototypeViewModel::pageCount(size_t tab) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     return groups_[tab].empty() ? 0 : (groups_[tab].size() + visibleLimit_ - 1) / visibleLimit_;
 }
 
 size_t PrototypeViewModel::page(size_t tab) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
+    if (tab >= CatalogTabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
     return pages_[tab];
 }
 
 bool PrototypeViewModel::switchTab(size_t tab) noexcept {
-    if (tab >= Tabs.size()) return false;
+    if (tab >= CatalogTabs.size()) return false;
     activeTab_ = tab;
     return true;
 }
@@ -491,12 +491,12 @@ bool PrototypeViewModel::select(size_t visibleRow) noexcept {
 }
 
 std::optional<size_t> PrototypeViewModel::selectedRow(size_t tab) const {
-    if (tab >= Tabs.size()) return std::nullopt;
+    if (tab >= CatalogTabs.size()) return std::nullopt;
     return selectedRows_[tab];
 }
 
 const Record* PrototypeViewModel::recordAt(size_t tab, size_t visibleRow) const noexcept {
-    if (tab >= Tabs.size()) return nullptr;
+    if (tab >= CatalogTabs.size()) return nullptr;
     return recordAt(tab, pages_[tab], visibleRow);
 }
 
@@ -505,25 +505,25 @@ const Record* PrototypeViewModel::recordAt(size_t tab, size_t targetPage, size_t
 }
 
 const Record* PrototypeViewModel::groupRecordAt(size_t tab, size_t visibleRow, size_t member) const noexcept {
-    if (tab >= Tabs.size()) return nullptr;
+    if (tab >= CatalogTabs.size()) return nullptr;
     return groupRecordAt(tab, pages_[tab], visibleRow, member);
 }
 
 const Record* PrototypeViewModel::groupRecordAt(size_t tab, size_t targetPage, size_t visibleRow, size_t member) const noexcept {
     const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
-    if (database_ == nullptr || tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) ||
+    if (database_ == nullptr || tab >= CatalogTabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) ||
         absoluteRow >= groups_[tab].size() || member >= groups_[tab][absoluteRow].size()) return nullptr;
     return &database_->records[groups_[tab][absoluteRow][member]];
 }
 
 size_t PrototypeViewModel::groupSize(size_t tab, size_t visibleRow) const noexcept {
-    if (tab >= Tabs.size()) return 0;
+    if (tab >= CatalogTabs.size()) return 0;
     return groupSize(tab, pages_[tab], visibleRow);
 }
 
 size_t PrototypeViewModel::groupSize(size_t tab, size_t targetPage, size_t visibleRow) const noexcept {
     const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
-    if (tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= groups_[tab].size()) return 0;
+    if (tab >= CatalogTabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= groups_[tab].size()) return 0;
     return groups_[tab][absoluteRow].size();
 }
 
@@ -533,7 +533,7 @@ const std::string& PrototypeViewModel::labelAt(size_t tab, size_t visibleRow) co
 
 const std::string& PrototypeViewModel::labelAt(size_t tab, size_t targetPage, size_t visibleRow) const {
     const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
-    if (tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= labels_[tab].size())
+    if (tab >= CatalogTabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= labels_[tab].size())
         throw std::out_of_range("Result label is outside the prototype page");
     return labels_[tab][absoluteRow];
 }
@@ -552,6 +552,10 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t targetPage, siz
     if (record == nullptr) throw std::out_of_range("Result row is outside the prototype page");
     PrototypeDetail detail;
     detail.title = record->name;
+    if (tab >= Tabs.size()) {
+        detail.lines = record->lines;
+        return detail;
+    }
     addField(detail.lines, *record, "base", "Base");
     addField(detail.lines, *record, "set", "Set");
     addField(detail.lines, *record, "runes", "Runes");

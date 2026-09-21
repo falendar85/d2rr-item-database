@@ -25,6 +25,7 @@ constexpr UINT CursorMoveMessage = WM_APP + 0x243;
 constexpr UINT TrackingTimer = 1;
 constexpr UINT CursorTimer = 2;
 constexpr int SearchId = 4100;
+constexpr int SearchHintId = 4101;
 constexpr int ComboFirstId = 4110;
 constexpr int HideVanillaId = 4120;
 constexpr int ExactRunesId = 4121;
@@ -73,21 +74,6 @@ LRESULT CALLBACK searchSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPAR
         if (root != nullptr) SendMessageW(root, CursorMoveMessage, 0, 0);
     }
     const LRESULT result = DefSubclassProc(hwnd, message, wparam, lparam);
-    if (message == WM_PAINT && GetWindowTextLengthW(hwnd) == 0) {
-        const HDC dc = GetDC(hwnd);
-        if (dc != nullptr) {
-            RECT client{};
-            GetClientRect(hwnd, &client);
-            client.left += 5;
-            const auto oldFont = SelectObject(dc, reinterpret_cast<HFONT>(SendMessageW(hwnd, WM_GETFONT, 0, 0)));
-            SetTextColor(dc, SearchHintText);
-            SetBkMode(dc, TRANSPARENT);
-            DrawTextW(dc, L"Search name, property, base, or class...", -1, &client,
-                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
-            SelectObject(dc, oldFont);
-            ReleaseDC(hwnd, dc);
-        }
-    }
     if (message == WM_NCDESTROY) RemoveWindowSubclass(hwnd, searchSubclassProc, 1);
     return result;
 }
@@ -301,6 +287,7 @@ struct OverlayHost::Impl {
     int scrollDragOffset = 0;
     HWND gameWindow = nullptr;
     HWND searchEdit = nullptr;
+    HWND searchHint = nullptr;
     std::array<HWND, 7> filterCombos{};
     HWND hideVanilla = nullptr;
     HWND hideVanillaLabel = nullptr;
@@ -462,7 +449,7 @@ struct OverlayHost::Impl {
         case WM_CTLCOLORBTN:
         case WM_CTLCOLORSTATIC: {
             const HDC controlDc = reinterpret_cast<HDC>(wparam);
-            SetTextColor(controlDc, ParchmentText);
+            SetTextColor(controlDc, reinterpret_cast<HWND>(lparam) == self->searchHint ? SearchHintText : ParchmentText);
             SetBkColor(controlDc, RGB(48, 47, 44));
             return reinterpret_cast<LRESULT>(self->controlBrush);
         }
@@ -613,6 +600,11 @@ struct OverlayHost::Impl {
         SendMessageW(searchEdit, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
         SendMessageW(searchEdit, EM_SETLIMITTEXT, 120, 0);
         SetWindowSubclass(searchEdit, searchSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
+        searchHint = CreateWindowExW(0, L"STATIC", L"Search name, property, base, or class...",
+            WS_CHILD | WS_VISIBLE | SS_NOTIFY | SS_LEFT | SS_CENTERIMAGE,
+            0, 0, 100, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(SearchHintId)), GetModuleHandleW(nullptr), nullptr);
+        SendMessageW(searchHint, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        SetWindowSubclass(searchHint, controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
         for (size_t index = 0; index < filterCombos.size(); ++index) {
             filterCombos[index] = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_TABSTOP | WS_BORDER |
                 CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL,
@@ -677,6 +669,7 @@ struct OverlayHost::Impl {
         const size_t tab = model.activeTab();
         const auto& filter = model.filters(tab);
         SetWindowTextW(searchEdit, wide(filter.text).c_str());
+        ShowWindow(searchHint, filter.text.empty() ? SW_SHOWNA : SW_HIDE);
         for (auto control : filterCombos) ShowWindow(control, SW_HIDE);
         ShowWindow(runeListLabel, SW_HIDE);
         ShowWindow(runeList, SW_HIDE);
@@ -737,6 +730,7 @@ struct OverlayHost::Impl {
         const int listLeft = layout.rows[0].left;
         const int listWidth = layout.rows[0].right - layout.rows[0].left;
         MoveWindow(searchEdit, listLeft, 150, listWidth, 34, TRUE);
+        MoveWindow(searchHint, listLeft + 5, 153, listWidth - 10, 28, TRUE);
         MoveWindow(hideVanilla, listLeft, 190, 22, 28, TRUE);
         MoveWindow(hideVanillaLabel, listLeft + 25, 190, 130, 28, TRUE);
         MoveWindow(exactRunes, listLeft + 160, 190, 22, 28, TRUE);
@@ -779,7 +773,15 @@ struct OverlayHost::Impl {
             std::string utf8(static_cast<size_t>(bytes), '\0');
             if (bytes > 0) WideCharToMultiByte(CP_UTF8, 0, value.data(), length, utf8.data(), bytes, nullptr, nullptr);
             filter.text = std::move(utf8);
+            ShowWindow(searchHint, filter.text.empty() ? SW_SHOWNA : SW_HIDE);
             changed = true;
+        } else if (id == SearchId && notification == EN_KILLFOCUS) {
+            if (GetWindowTextLengthW(searchEdit) == 0) ShowWindow(searchHint, SW_SHOWNA);
+            return;
+        } else if (id == SearchHintId && notification == STN_CLICKED) {
+            ShowWindow(searchHint, SW_HIDE);
+            SetFocus(searchEdit);
+            return;
         } else if (combo && notification == CBN_SELCHANGE) {
             const size_t index = static_cast<size_t>(id - ComboFirstId);
             const int selection = static_cast<int>(SendMessageW(filterCombos[index], CB_GETCURSEL, 0, 0));

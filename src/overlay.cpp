@@ -1,6 +1,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
 #include <D2RLPlugin/api.h>
 #include <itemdb/overlay.hpp>
 #include <itemdb/prototype.hpp>
@@ -19,16 +20,58 @@ constexpr wchar_t OverlayClass[] = L"D2RRItemDatabaseOverlay";
 constexpr UINT ToggleMessage = WM_APP + 0x241;
 constexpr UINT StopMessage = WM_APP + 0x242;
 constexpr UINT TrackingTimer = 1;
+constexpr UINT CursorTimer = 2;
 constexpr int SearchId = 4100;
 constexpr int ComboFirstId = 4110;
 constexpr int HideVanillaId = 4120;
 constexpr int ExactRunesId = 4121;
 constexpr int ResetFiltersId = 4122;
 constexpr int RuneListId = 4123;
-constexpr UINT EditSetCueBanner = 0x1501;
 constexpr COLORREF ParchmentText = RGB(238, 233, 217);
 constexpr COLORREF SiteUniqueText = RGB(199, 183, 144);
 constexpr COLORREF SiteSetText = RGB(76, 194, 56);
+constexpr COLORREF SearchHintText = RGB(199, 183, 144);
+
+HCURSOR arrowCursor() {
+    static const HCURSOR cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    return cursor;
+}
+
+LRESULT CALLBACK controlSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam,
+                                     UINT_PTR, DWORD_PTR) {
+    if (message == WM_SETCURSOR) {
+        SetCursor(arrowCursor());
+        return TRUE;
+    }
+    if (message == WM_NCDESTROY) RemoveWindowSubclass(hwnd, controlSubclassProc, 1);
+    return DefSubclassProc(hwnd, message, wparam, lparam);
+}
+
+LRESULT CALLBACK searchSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam,
+                                    UINT_PTR, DWORD_PTR) {
+    if (message == WM_SETCURSOR) {
+        SetCursor(arrowCursor());
+        return TRUE;
+    }
+    const LRESULT result = DefSubclassProc(hwnd, message, wparam, lparam);
+    if (message == WM_PAINT && GetWindowTextLengthW(hwnd) == 0) {
+        const HDC dc = GetDC(hwnd);
+        if (dc != nullptr) {
+            RECT client{};
+            GetClientRect(hwnd, &client);
+            client.left += 5;
+            const auto oldFont = SelectObject(dc, reinterpret_cast<HFONT>(SendMessageW(hwnd, WM_GETFONT, 0, 0)));
+            SetTextColor(dc, SearchHintText);
+            SetBkMode(dc, TRANSPARENT);
+            DrawTextW(dc, L"Search name, property, base, or class...", -1, &client,
+                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
+            SelectObject(dc, oldFont);
+            ReleaseDC(hwnd, dc);
+        }
+    }
+    if (message == WM_NCDESTROY) RemoveWindowSubclass(hwnd, searchSubclassProc, 1);
+    return result;
+}
 
 std::wstring wide(const std::string& text) {
     if (text.empty()) return {};
@@ -182,6 +225,7 @@ struct OverlayHost::Impl {
     HFONT controlFont = nullptr;
     HBRUSH controlBrush = nullptr;
     bool updatingControls = false;
+    int cursorVisibilityAdjustments = 0;
     std::array<std::string, 7> comboKeys{};
     std::array<std::vector<std::string>, 7> comboValues{};
 
@@ -239,6 +283,7 @@ struct OverlayHost::Impl {
         createControls(handle);
         syncControls();
         SetTimer(handle, TrackingTimer, 100, nullptr);
+        SetTimer(handle, CursorTimer, 16, nullptr);
         MSG message{};
         while (GetMessageW(&message, nullptr, 0, 0) > 0) {
             const bool closeKey = message.message == WM_KEYDOWN && message.wParam == VK_ESCAPE;
@@ -283,7 +328,8 @@ struct OverlayHost::Impl {
             DestroyWindow(hwnd);
             return 0;
         case WM_TIMER:
-            self->updatePlacement(false);
+            if (wparam == TrackingTimer) self->updatePlacement(false);
+            else if (wparam == CursorTimer) self->maintainCursor();
             return 0;
         case WM_ERASEBKGND:
             return 1;
@@ -298,6 +344,7 @@ struct OverlayHost::Impl {
             return 0;
         case WM_CTLCOLOREDIT:
         case WM_CTLCOLORLISTBOX:
+        case WM_CTLCOLORBTN:
         case WM_CTLCOLORSTATIC: {
             const HDC controlDc = reinterpret_cast<HDC>(wparam);
             SetTextColor(controlDc, ParchmentText);
@@ -325,7 +372,7 @@ struct OverlayHost::Impl {
             self->draggingScroll = false;
             return 0;
         case WM_SETCURSOR:
-            SetCursor(LoadCursorW(nullptr, MAKEINTRESOURCEW(32512)));
+            SetCursor(arrowCursor());
             return TRUE;
         case WM_MOUSEWHEEL: {
             POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
@@ -349,6 +396,8 @@ struct OverlayHost::Impl {
             break;
         case WM_DESTROY:
             KillTimer(hwnd, TrackingTimer);
+            KillTimer(hwnd, CursorTimer);
+            self->restoreCursorVisibility();
             PostQuitMessage(0);
             return 0;
         }
@@ -360,7 +409,37 @@ struct OverlayHost::Impl {
         draggingScroll = false;
         if (GetCapture() == window.load()) ReleaseCapture();
         ShowWindow(window.load(), SW_HIDE);
+        restoreCursorVisibility();
         if (IsWindow(gameWindow)) SetForegroundWindow(gameWindow);
+    }
+
+    void ensureCursorVisible() {
+        int count = ShowCursor(TRUE);
+        if (count > 0) {
+            ShowCursor(FALSE);
+        } else {
+            ++cursorVisibilityAdjustments;
+            while (count < 0) {
+                count = ShowCursor(TRUE);
+                ++cursorVisibilityAdjustments;
+            }
+        }
+        SetCursor(arrowCursor());
+    }
+
+    void restoreCursorVisibility() {
+        while (cursorVisibilityAdjustments > 0) {
+            ShowCursor(FALSE);
+            --cursorVisibilityAdjustments;
+        }
+    }
+
+    void maintainCursor() {
+        if (!visible || !IsWindowVisible(window.load())) return;
+        POINT point{};
+        RECT overlayRect{};
+        if (GetCursorPos(&point) && GetWindowRect(window.load(), &overlayRect) &&
+            PtInRect(&overlayRect, point)) ensureCursorVisible();
     }
 
     void createControls(HWND parent) {
@@ -370,12 +449,16 @@ struct OverlayHost::Impl {
             0, 0, 100, 30, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(SearchId)), GetModuleHandleW(nullptr), nullptr);
         SendMessageW(searchEdit, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
         SendMessageW(searchEdit, EM_SETLIMITTEXT, 120, 0);
-        SendMessageW(searchEdit, EditSetCueBanner, TRUE, reinterpret_cast<LPARAM>(L"Search name, property, base, or class..."));
+        SetWindowSubclass(searchEdit, searchSubclassProc, 1, 0);
         for (size_t index = 0; index < filterCombos.size(); ++index) {
             filterCombos[index] = CreateWindowExW(0, L"COMBOBOX", L"", WS_CHILD | WS_TABSTOP | WS_BORDER |
                 CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL,
                 0, 0, 100, 260, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ComboFirstId + static_cast<int>(index))), GetModuleHandleW(nullptr), nullptr);
             SendMessageW(filterCombos[index], WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+            SetWindowSubclass(filterCombos[index], controlSubclassProc, 1, 0);
+            COMBOBOXINFO info{sizeof(info)};
+            if (GetComboBoxInfo(filterCombos[index], &info) && info.hwndList != nullptr)
+                SetWindowSubclass(info.hwndList, controlSubclassProc, 1, 0);
         }
         hideVanilla = CreateWindowExW(0, L"BUTTON", L"HIDE VANILLA", WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX,
             0, 0, 150, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(HideVanillaId)), GetModuleHandleW(nullptr), nullptr);
@@ -393,6 +476,8 @@ struct OverlayHost::Impl {
         SendMessageW(resetFilters, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
         SendMessageW(runeListLabel, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
         SendMessageW(runeList, WM_SETFONT, reinterpret_cast<WPARAM>(controlFont), TRUE);
+        for (const HWND control : {hideVanilla, exactRunes, resetFilters, runeListLabel, runeList})
+            SetWindowSubclass(control, controlSubclassProc, 1, 0);
     }
 
     void configureCombo(size_t index, std::string key, const std::string& allLabel,

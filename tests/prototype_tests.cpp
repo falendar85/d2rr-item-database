@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
         const auto* close = findNode(layout, "CloseButton");
         require(close != nullptr && (*close)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/ItemDatabase", "close message invalid");
         require((*close)["fields"]["filename"] == "PANEL\\closebtn_4x", "native X close button missing");
+        require((*close)["fields"]["tooltipString"] == "@d2r:strClose", "close tooltip is not game-namespaced");
         require((*close)["fields"]["rect"]["x"] == 1900 && (*close)["fields"]["rect"]["y"] == 15, "close button is not in the upper-right corner");
         const auto* title = findNode(layout, "Title");
         require(title != nullptr && (*title)["fields"]["rect"]["width"] == 2000 && (*title)["fields"]["style"]["alignment"]["h"] == "center",

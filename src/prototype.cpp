@@ -78,7 +78,7 @@ Json buttonWidget(std::string name, std::string text, Json bounds, std::string m
 Json closeButtonWidget(Json bounds, std::string message) {
     return {{"type", "ButtonWidget"}, {"name", "CloseButton"}, {"fields", {
         {"rect", std::move(bounds)}, {"filename", "PANEL\\closebtn_4x"}, {"hoveredFrame", 3},
-        {"tooltipString", "@strClose"}, {"sound", "cursor_close_window_hd"}, {"onClickMessage", std::move(message)}
+        {"tooltipString", "@d2r:strClose"}, {"sound", "cursor_close_window_hd"}, {"onClickMessage", std::move(message)}
     }}};
 }
 

@@ -98,6 +98,13 @@ struct Layout {
     RECT previous{}, next{}, detail{};
 };
 
+struct ScrollMetrics {
+    bool visible = false;
+    int maximum = 0;
+    RECT track{};
+    RECT thumb{};
+};
+
 Layout layoutFor(int width, int height) {
     Layout layout;
     layout.close = {width - 58, 16, width - 18, 56};
@@ -154,6 +161,8 @@ struct OverlayHost::Impl {
     std::atomic<HWND> window{nullptr};
     bool visible = false;
     int detailScroll = 0;
+    bool draggingScroll = false;
+    int scrollDragOffset = 0;
     HWND gameWindow = nullptr;
 
     Impl(PrototypeViewModel& source, const D2RL::PluginContext* context) : model(source), plugin(context) {}
@@ -246,17 +255,36 @@ struct OverlayHost::Impl {
         case WM_PAINT:
             self->paint(hwnd);
             return 0;
+        case WM_LBUTTONDOWN:
+            if (self->beginScrollDrag(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam))) return 0;
+            break;
+        case WM_MOUSEMOVE:
+            if (self->draggingScroll) {
+                self->continueScrollDrag(GET_Y_LPARAM(lparam));
+                return 0;
+            }
+            break;
         case WM_LBUTTONUP:
+            if (self->draggingScroll) {
+                self->draggingScroll = false;
+                ReleaseCapture();
+                return 0;
+            }
             self->click(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam));
             return 0;
+        case WM_CAPTURECHANGED:
+            self->draggingScroll = false;
+            return 0;
+        case WM_SETCURSOR:
+            SetCursor(LoadCursorW(nullptr, MAKEINTRESOURCEW(32512)));
+            return TRUE;
         case WM_MOUSEWHEEL: {
             POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
             ScreenToClient(hwnd, &point);
             RECT client{}; GetClientRect(hwnd, &client);
             const RECT detail = layoutFor(client.right, client.bottom).detail;
             if (contains(detail, point.x, point.y)) {
-                const int visibleLines = std::max<int>(1, (detail.bottom - detail.top - 70) / 27);
-                const int maximum = std::max(0, self->detailLineCount() - visibleLines);
+                const int maximum = self->currentScrollMetrics().maximum;
                 self->detailScroll = std::clamp(self->detailScroll + (GET_WHEEL_DELTA_WPARAM(wparam) > 0 ? -3 : 3), 0, maximum);
                 InvalidateRect(hwnd, nullptr, FALSE);
             }
@@ -296,9 +324,18 @@ struct OverlayHost::Impl {
         const int height = std::min(gameHeight, std::clamp(gameHeight * 86 / 100, 720, 920));
         const int x = origin.x + (gameWidth - width) / 2;
         const int y = origin.y + (gameHeight - height) / 2;
-        SetWindowLongPtrW(window.load(), GWLP_HWNDPARENT, reinterpret_cast<LONG_PTR>(gameWindow));
-        SetWindowPos(window.load(), HWND_TOPMOST, x, y, width, height,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        if (GetWindow(window.load(), GW_OWNER) != gameWindow)
+            SetWindowLongPtrW(window.load(), GWLP_HWNDPARENT, reinterpret_cast<LONG_PTR>(gameWindow));
+        RECT current{};
+        const bool hasCurrent = GetWindowRect(window.load(), &current) != FALSE;
+        const bool geometryChanged = !hasCurrent || current.left != x || current.top != y ||
+            current.right - current.left != width || current.bottom - current.top != height;
+        const bool needsShow = visible && !IsWindowVisible(window.load());
+        if (geometryChanged || needsShow || forceShow) {
+            UINT flags = SWP_NOACTIVATE;
+            if (needsShow || forceShow) flags |= SWP_SHOWWINDOW;
+            SetWindowPos(window.load(), HWND_TOPMOST, x, y, width, height, flags);
+        }
     }
 
     HFONT font(int pixels, int weight = FW_NORMAL) const {
@@ -382,6 +419,94 @@ struct OverlayHost::Impl {
             maximum = std::max(maximum, recordLines(*record, false).size());
         }
         return static_cast<int>(maximum);
+    }
+
+    int measuredLineHeight(HDC dc, const RECT& rect, const std::string& value) const {
+        RECT measured{rect.left + 8, 0, rect.right - 18, 54};
+        const auto converted = wide(value);
+        const HFONT selected = font(17);
+        const auto old = SelectObject(dc, selected);
+        DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured,
+            DT_WORDBREAK | DT_CENTER | DT_NOPREFIX | DT_CALCRECT);
+        SelectObject(dc, old);
+        DeleteObject(selected);
+        return std::max<int>(27, measured.bottom - measured.top);
+    }
+
+    ScrollMetrics currentScrollMetrics() const {
+        ScrollMetrics metrics;
+        if (model.activeTab() == 3 || window.load() == nullptr) return metrics;
+        const auto lines = selectedLines();
+        if (lines.empty()) return metrics;
+        RECT client{};
+        GetClientRect(window.load(), &client);
+        RECT body = layoutFor(client.right, client.bottom).detail;
+        body.left += 8;
+        body.top += 60;
+        body.right -= 8;
+        const HDC dc = GetDC(window.load());
+        if (dc == nullptr) return metrics;
+        int totalHeight = 0;
+        std::vector<int> heights;
+        heights.reserve(lines.size());
+        for (const auto& line : lines) {
+            const int height = measuredLineHeight(dc, body, line);
+            heights.push_back(height);
+            totalHeight += height;
+        }
+        ReleaseDC(window.load(), dc);
+        const int viewport = body.bottom - body.top;
+        if (totalHeight <= viewport) return metrics;
+        int tailHeight = 0;
+        int maximum = static_cast<int>(lines.size());
+        for (int index = static_cast<int>(lines.size()) - 1; index >= 0; --index) {
+            if (tailHeight + heights[static_cast<size_t>(index)] > viewport && maximum < static_cast<int>(lines.size())) break;
+            tailHeight += heights[static_cast<size_t>(index)];
+            maximum = index;
+        }
+        metrics.visible = true;
+        metrics.maximum = std::max(1, maximum);
+        metrics.track = {body.right - 14, body.top, body.right - 4, body.bottom};
+        const int trackHeight = metrics.track.bottom - metrics.track.top;
+        const int thumbHeight = std::max(30, trackHeight * viewport / std::max(viewport, totalHeight));
+        const int travel = std::max(1, trackHeight - thumbHeight);
+        const int clampedScroll = std::clamp(detailScroll, 0, metrics.maximum);
+        const int thumbY = metrics.track.top + travel * clampedScroll / metrics.maximum;
+        metrics.thumb = {metrics.track.left - 3, thumbY, metrics.track.right + 3, thumbY + thumbHeight};
+        return metrics;
+    }
+
+    bool beginScrollDrag(int x, int y) {
+        const ScrollMetrics metrics = currentScrollMetrics();
+        if (!metrics.visible) return false;
+        if (contains(metrics.thumb, x, y)) {
+            draggingScroll = true;
+            scrollDragOffset = y - metrics.thumb.top;
+            SetCapture(window.load());
+            return true;
+        }
+        if (contains(metrics.track, x, y)) {
+            const int thumbHeight = static_cast<int>(metrics.thumb.bottom - metrics.thumb.top);
+            const int travel = std::max(1, static_cast<int>(metrics.track.bottom - metrics.track.top) - thumbHeight);
+            const int target = std::clamp(y - static_cast<int>(metrics.track.top) - thumbHeight / 2, 0, travel);
+            detailScroll = target * metrics.maximum / travel;
+            InvalidateRect(window.load(), nullptr, FALSE);
+            return true;
+        }
+        return false;
+    }
+
+    void continueScrollDrag(int y) {
+        const ScrollMetrics metrics = currentScrollMetrics();
+        if (!metrics.visible) return;
+        const int thumbHeight = static_cast<int>(metrics.thumb.bottom - metrics.thumb.top);
+        const int travel = std::max(1, static_cast<int>(metrics.track.bottom - metrics.track.top) - thumbHeight);
+        const int target = std::clamp(y - scrollDragOffset - static_cast<int>(metrics.track.top), 0, travel);
+        const int next = target * metrics.maximum / travel;
+        if (next != detailScroll) {
+            detailScroll = next;
+            InvalidateRect(window.load(), nullptr, FALSE);
+        }
     }
 
     int drawLines(HDC dc, RECT rect, const std::vector<std::string>& lines, int scroll, bool centered = true,
@@ -473,16 +598,14 @@ struct OverlayHost::Impl {
                     for (size_t member = 0; member < model.groupSize(tab, *selected); ++member)
                         setItemNames.insert(model.groupRecordAt(tab, *selected, member)->name);
                 }
-                const int total = drawLines(dc, body, lines, detailScroll, true,
+                drawLines(dc, body, lines, detailScroll, true,
                     tab == 1 ? &setItemNames : nullptr, SiteSetText);
-                if (total > 18) {
-                    RECT track{body.right - 8, body.top, body.right - 2, body.bottom};
+                const ScrollMetrics metrics = currentScrollMetrics();
+                detailScroll = std::clamp(detailScroll, 0, metrics.maximum);
+                if (metrics.visible) {
+                    const RECT track = metrics.track;
                     const HBRUSH trackBrush = CreateSolidBrush(RGB(65, 57, 39)); FillRect(dc, &track, trackBrush); DeleteObject(trackBrush);
-                    const int range = std::max(1, total - 1);
-                    const int thumbHeight = std::max<int>(30, (track.bottom - track.top) * 14 / std::max(14, total));
-                    const int thumbY = track.top + (track.bottom - track.top - thumbHeight) * std::min(detailScroll, range) / range;
-                    RECT thumb{track.left - 2, thumbY, track.right + 2, thumbY + thumbHeight};
-                    const HBRUSH thumbBrush = CreateSolidBrush(RGB(178, 132, 62)); FillRect(dc, &thumb, thumbBrush); DeleteObject(thumbBrush);
+                    const HBRUSH thumbBrush = CreateSolidBrush(RGB(178, 132, 62)); FillRect(dc, &metrics.thumb, thumbBrush); DeleteObject(thumbBrush);
                 }
             }
         }

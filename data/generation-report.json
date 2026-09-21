@@ -5,9 +5,18 @@
     "runewords": 211,
     "bases": 520
   },
+  "source_counts": {
+    "uniques": 1413,
+    "sets": 455,
+    "runewords": 211,
+    "bases": 520
+  },
+  "properties": 18198,
+  "numeric_properties": 15853,
+  "conditional_properties": 5022,
   "warnings": {
     "unresolved_string_keys": 1
   },
-  "sha256": "ade1fe259f8b7fff0b82da6c322faff5602cfa95fbbfb3a84c48f2a835a70304",
-  "bytes": 9017444
+  "sha256": "1bdf43e72e9b6b5dd7b7f7b92deecbee5cfcdf3b36f15dab5e3365daea0c0829",
+  "bytes": 9081671
 }

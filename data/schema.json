@@ -1,1 +1,71 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"D2RR Item Database v1","type":"object","required":["schema_version","records"],"properties":{"schema_version":{"const":1},"provenance":{"type":"object"},"records":{"type":"array","minItems":1,"maxItems":100000,"items":{"type":"object","required":["id","tab","name","fields","numbers","properties","display_lines"],"properties":{"id":{"type":"string","minLength":1},"name":{"type":"string","minLength":1},"tab":{"enum":["uniques","sets","runewords","bases"]},"fields":{"type":"object","additionalProperties":{"type":"array","items":{"type":"string"}}},"numbers":{"type":"object","additionalProperties":{"type":"number"}},"display_lines":{"type":"array","items":{"type":"string"}},"properties":{"type":"array","items":{"type":"object","required":["property_id"],"properties":{"property_id":{"type":"string","minLength":1},"min_value":{"type":["number","null"]},"max_value":{"type":["number","null"]},"conditional":{"type":"boolean"},"per_level":{"type":"boolean"},"scope":{"type":"string"},"raw":{"type":"object"}}}}}}}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "D2RR Item Database v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "provenance", "records"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "provenance": {
+      "type": "object",
+      "required": ["repository", "revision", "source_hashes", "language", "warnings"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 7 },
+        "source_hashes": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+        "language": { "type": "string", "minLength": 1 },
+        "warnings": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tab", "name", "fields", "numbers", "properties", "display_lines", "source_ref", "search_text"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "tab": { "enum": ["uniques", "sets", "runewords", "bases"] },
+          "fields": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+          "numbers": { "type": "object", "additionalProperties": { "type": "number" } },
+          "display_lines": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "search_text": { "type": "string" },
+          "source_ref": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "row", "index", "code"],
+            "properties": {
+              "file": { "enum": ["uniques.json", "sets.json", "runewords.json", "armors.json", "weapons.json"] },
+              "row": { "type": ["integer", "string"] },
+              "index": { "type": "string" },
+              "code": { "type": "string" }
+            }
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["property_id", "canonical_name", "min_value", "max_value", "unit", "text", "conditional", "per_level", "scope", "raw"],
+              "properties": {
+                "property_id": { "type": "string", "minLength": 1 },
+                "canonical_name": { "type": "string", "minLength": 1 },
+                "min_value": { "type": ["number", "null"] },
+                "max_value": { "type": ["number", "null"] },
+                "unit": { "enum": ["percent", "number"] },
+                "text": { "type": "string" },
+                "conditional": { "type": "boolean" },
+                "per_level": { "type": "boolean" },
+                "scope": { "type": "string" },
+                "raw": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

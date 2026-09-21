@@ -2,7 +2,7 @@
 
 No runtime scraping. No writes to game/mod/save directories. Python 3.11+ stdlib.
 """
-import argparse, collections, hashlib, json, pathlib, re, urllib.request
+import argparse, collections, hashlib, json, math, pathlib, re, urllib.request
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 FILES=['keyed/'+n+'.json' for n in ['uniques','sets','runewords','armors','weapons','ias-calculator']]+['strings/enUS.json']
 TOKEN=re.compile(r'%(?:\+d|[dDsSi]|c\d|\d|%)')
@@ -70,7 +70,9 @@ class Normalizer:
     def __init__(self,source):
         self.source=pathlib.Path(source)
         self.strings=self.read('strings/enUS.json')
-        self.base_rows=self.read('keyed/armors.json')+self.read('keyed/weapons.json')
+        self.armor_rows=self.read('keyed/armors.json')
+        self.weapon_rows=self.read('keyed/weapons.json')
+        self.base_rows=self.armor_rows+self.weapon_rows
         self.bases={b['NameKey']:b for b in self.base_rows}
         self.speed={b['Code']:b for b in self.read('keyed/ias-calculator.json')['Weapons']}
         self.catalog={};self.warnings=collections.Counter()
@@ -168,14 +170,21 @@ class Normalizer:
             if len(caps)==3:nums.update(zip(['sockets_low','sockets_mid','sockets_high'],caps));nums['max_sockets']=max(caps)
         elif isinstance(sockets,(int,float)):nums['max_sockets']=sockets
         if tab=='runewords':
-            fields['runes']=[re.sub(r'\s+Rune$','',self.t(r['NameKey']),flags=re.I) for r in row.get('Runes',[])]
+            # The English export currently renders "Jah Rune (#31)". Store the
+            # canonical rune name so `runes=jah` works and keep order intact.
+            fields['runes']=[re.sub(r'\s+Rune(?:\s*\(#\d+\))?$','',self.t(r['NameKey']),flags=re.I) for r in row.get('Runes',[])]
             nums['rune_count']=nums['sockets']=len(fields['runes'])
             # Resolve broad accepted types to actual compatible weapon/base types from the same export.
             accepted={t.get('Index','') for t in row.get('Types',[]) if isinstance(t,dict)}
             compatible=[]
+            class_types={'Amazon':'amazitype','Barbarian':'barbitype','Necromancer':'necritype',
+                         'Paladin':'palaitype','Sorceress':'sorcitype','Assassin':'assnitype',
+                         'Druid':'druiitype','Warlock':'warlitype'}
             for base in self.base_rows:
                 bt=base.get('Type',{}).get('Index','')
                 chain={bt}|{t+'itype' for t in self.speed.get(base['NameKey'],{}).get('Types',[])}
+                required_class=base.get('RequiredClass','')
+                if required_class in class_types:chain.add(class_types[required_class])
                 if base.get('EquipmentType')==0:chain.add('armoitype')
                 if bt in ('shieitype','ashditype','headitype','grimitype'):chain.add('shlditype')
                 if chain&accepted:
@@ -207,8 +216,24 @@ class Normalizer:
             if p['property_id']=='sockets' and not p['conditional'] and p['max_value'] is not None:nums['sockets']=p['max_value']
         lines.append('Origin: '+fields['origin'][0])
         fields={k:[v for v in vs if v] for k,vs in fields.items()}
-        return {'id':f'{tab}:{index}:{row.get("Index",code)}','tab':tab,'name':name,'fields':fields,'numbers':nums,'properties':properties,'display_lines':lines,
-                'source_ref':{'index':row.get('Index',code),'code':code},'search_text':'\n'.join(lines)}
+        source_key=str(row.get('Index',code))
+        # Keep IDs stable when rows are inserted upstream. Runewords contain one
+        # intentional duplicate index (two Doom variants), so its accepted type
+        # list forms the stable discriminator. Set name protects against a future
+        # item-name collision across sets without relying on row position.
+        if tab=='runewords':
+            discriminator=','.join(sorted(t.get('Index','') for t in row.get('Types',[]) if isinstance(t,dict)))
+            record_id=f'{tab}:{source_key}:{discriminator}'
+        elif tab=='sets':record_id=f'{tab}:{row.get("SetName","")}:{source_key}'
+        else:record_id=f'{tab}:{source_key}'
+        source_file={'uniques':'uniques.json','sets':'sets.json','runewords':'runewords.json'}.get(tab)
+        source_row=index
+        if tab=='bases':
+            is_armor=isinstance(index,int) and index<len(self.armor_rows)
+            source_file='armors.json' if is_armor else 'weapons.json'
+            source_row=index if is_armor else index-len(self.armor_rows)
+        return {'id':record_id,'tab':tab,'name':name,'fields':fields,'numbers':nums,'properties':properties,'display_lines':lines,
+                'source_ref':{'file':source_file,'row':source_row,'index':source_key,'code':code},'search_text':'\n'.join(lines)}
     def generate(self):
         rows=[]
         for i,r in enumerate(self.read('keyed/uniques.json')):
@@ -221,16 +246,33 @@ class Normalizer:
         return rows
 
 def validate(db):
-    assert db['schema_version']==1
+    if not isinstance(db,dict) or db.get('schema_version')!=1:raise ValueError('unsupported or missing schema_version')
+    if not isinstance(db.get('provenance'),dict):raise ValueError('missing provenance')
+    if not isinstance(db.get('records'),list) or not db['records']:raise ValueError('records must be a non-empty array')
+    if len(db['records'])>100000:raise ValueError('record count exceeds schema maximum')
     ids=set();counts=collections.Counter()
-    for r in db['records']:
-        assert r['id'] not in ids;ids.add(r['id']);assert r['name'];counts[r['tab']]+=1
-        assert isinstance(r['display_lines'],list) and r['display_lines']
+    required={'id','tab','name','fields','numbers','properties','display_lines','source_ref','search_text'}
+    for offset,r in enumerate(db['records']):
+        if not isinstance(r,dict) or not required.issubset(r):raise ValueError(f'record {offset} is missing required fields')
+        if not isinstance(r['id'],str) or not r['id'] or r['id'] in ids:raise ValueError(f'invalid or duplicate id at record {offset}')
+        ids.add(r['id'])
+        if r['tab'] not in ('uniques','sets','runewords','bases'):raise ValueError(f'invalid tab for {r["id"]}')
+        if not isinstance(r['name'],str) or not r['name']:raise ValueError(f'missing name for {r["id"]}')
+        counts[r['tab']]+=1
+        if not isinstance(r['fields'],dict) or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in r['fields'].values()):raise ValueError(f'invalid fields for {r["id"]}')
+        if not isinstance(r['numbers'],dict) or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) for v in r['numbers'].values()):raise ValueError(f'invalid numbers for {r["id"]}')
+        if not isinstance(r['display_lines'],list) or not r['display_lines'] or any(not isinstance(x,str) for x in r['display_lines']):raise ValueError(f'invalid display lines for {r["id"]}')
+        if not isinstance(r['search_text'],str):raise ValueError(f'invalid search text for {r["id"]}')
+        source=r['source_ref']
+        if not isinstance(source,dict) or source.get('file') not in ('uniques.json','sets.json','runewords.json','armors.json','weapons.json') or not isinstance(source.get('row'),(int,str)):raise ValueError(f'invalid source reference for {r["id"]}')
+        if not isinstance(r['properties'],list):raise ValueError(f'invalid properties for {r["id"]}')
         for p in r['properties']:
-            assert p['property_id']
-            assert (p['min_value'] is None)==(p['max_value'] is None)
-            if p['min_value'] is not None:assert p['min_value']<=p['max_value']
-    assert set(counts)=={'uniques','sets','runewords','bases'}
+            if not isinstance(p,dict) or not isinstance(p.get('property_id'),str) or not p['property_id']:raise ValueError(f'invalid property for {r["id"]}')
+            lo,hi=p.get('min_value'),p.get('max_value')
+            if (lo is None)!=(hi is None):raise ValueError(f'incomplete property range for {r["id"]}')
+            if lo is not None and (isinstance(lo,bool) or isinstance(hi,bool) or not isinstance(lo,(int,float)) or not isinstance(hi,(int,float)) or not math.isfinite(lo) or not math.isfinite(hi) or lo>hi):raise ValueError(f'invalid property range for {r["id"]}')
+            if not isinstance(p.get('conditional'),bool) or not isinstance(p.get('per_level'),bool):raise ValueError(f'invalid property flags for {r["id"]}')
+    if set(counts)!=set(('uniques','sets','runewords','bases')):raise ValueError(f'missing catalog tabs: {counts}')
     return dict(counts)
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--source',type=pathlib.Path,help='website root or static/data directory')
@@ -247,10 +289,24 @@ def main():
             data=urllib.request.urlopen(url,timeout=60).read();dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
         hashes[f]=hashlib.sha256(dest.read_bytes()).hexdigest()
     n=Normalizer(source);records=n.generate()
+    source_counts={
+        'uniques':sum(r.get('Enabled',True) for r in n.read('keyed/uniques.json')),
+        'sets':sum(len(s.get('SetItems',[])) for s in n.read('keyed/sets.json')),
+        'runewords':sum(r.get('Enabled',True) for r in n.read('keyed/runewords.json')),
+        'bases':len(n.base_rows),
+    }
     db={'schema_version':1,'provenance':{'repository':'D2R-Reimagined/d2r-reimagined-website','revision':revision,'source_hashes':hashes,'language':'enUS','warnings':dict(n.warnings)},'records':records}
     counts=validate(db);args.output.parent.mkdir(parents=True,exist_ok=True)
+    if counts!=source_counts:raise ValueError(f'Normalized counts {counts} do not match source counts {source_counts}')
     args.output.write_text(json.dumps(db,ensure_ascii=False,separators=(',',':'))+'\n',encoding='utf-8')
     (args.output.parent/'property-catalog.json').write_text(json.dumps(sorted(n.catalog.values(),key=lambda x:x['id']),ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    (args.output.parent/'generation-report.json').write_text(json.dumps({'counts':counts,'warnings':dict(n.warnings),'sha256':hashlib.sha256(args.output.read_bytes()).hexdigest(),'bytes':args.output.stat().st_size},indent=2)+'\n')
+    property_count=sum(len(r['properties']) for r in records)
+    numeric_property_count=sum(p['min_value'] is not None for r in records for p in r['properties'])
+    conditional_property_count=sum(p['conditional'] for r in records for p in r['properties'])
+    (args.output.parent/'generation-report.json').write_text(json.dumps({
+        'counts':counts,'source_counts':source_counts,'properties':property_count,
+        'numeric_properties':numeric_property_count,'conditional_properties':conditional_property_count,
+        'warnings':dict(n.warnings),'sha256':hashlib.sha256(args.output.read_bytes()).hexdigest(),
+        'bytes':args.output.stat().st_size},indent=2)+'\n')
     print(json.dumps({'counts':counts,'warnings':dict(n.warnings),'bytes':args.output.stat().st_size}))
 if __name__=='__main__':main()

@@ -21,6 +21,7 @@ constexpr wchar_t OverlayClass[] = L"D2RRItemDatabaseOverlay";
 constexpr wchar_t CursorClass[] = L"D2RRItemDatabaseCursor";
 constexpr UINT ToggleMessage = WM_APP + 0x241;
 constexpr UINT StopMessage = WM_APP + 0x242;
+constexpr UINT CursorMoveMessage = WM_APP + 0x243;
 constexpr UINT TrackingTimer = 1;
 constexpr UINT CursorTimer = 2;
 constexpr int SearchId = 4100;
@@ -51,6 +52,10 @@ LRESULT CALLBACK controlSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPA
         SetCursor(reinterpret_cast<HCURSOR>(refData));
         return TRUE;
     }
+    if (message == WM_MOUSEMOVE) {
+        const HWND root = GetAncestor(hwnd, GA_ROOT);
+        if (root != nullptr) SendMessageW(root, CursorMoveMessage, 0, 0);
+    }
     if (message == WM_NCDESTROY) RemoveWindowSubclass(hwnd, controlSubclassProc, 1);
     return DefSubclassProc(hwnd, message, wparam, lparam);
 }
@@ -60,6 +65,10 @@ LRESULT CALLBACK searchSubclassProc(HWND hwnd, UINT message, WPARAM wparam, LPAR
     if (message == WM_SETCURSOR) {
         SetCursor(reinterpret_cast<HCURSOR>(refData));
         return TRUE;
+    }
+    if (message == WM_MOUSEMOVE) {
+        const HWND root = GetAncestor(hwnd, GA_ROOT);
+        if (root != nullptr) SendMessageW(root, CursorMoveMessage, 0, 0);
     }
     const LRESULT result = DefSubclassProc(hwnd, message, wparam, lparam);
     if (message == WM_PAINT && GetWindowTextLengthW(hwnd) == 0) {
@@ -256,6 +265,9 @@ struct OverlayHost::Impl {
     int cursorVisibilityAdjustments = 0;
     HCURSOR transparentCursor = nullptr;
     HWND cursorWindow = nullptr;
+    bool softwareCursorShown = false;
+    bool dropdownActive = false;
+    POINT lastCursorPosition{-1, -1};
     std::array<std::string, 7> comboKeys{};
     std::array<std::vector<std::string>, 7> comboValues{};
 
@@ -327,7 +339,7 @@ struct OverlayHost::Impl {
         createControls(handle);
         syncControls();
         SetTimer(handle, TrackingTimer, 100, nullptr);
-        SetTimer(handle, CursorTimer, 16, nullptr);
+        SetTimer(handle, CursorTimer, 50, nullptr);
         MSG message{};
         while (GetMessageW(&message, nullptr, 0, 0) > 0) {
             const bool closeKey = message.message == WM_KEYDOWN && message.wParam == VK_ESCAPE;
@@ -379,6 +391,9 @@ struct OverlayHost::Impl {
             if (wparam == TrackingTimer) self->updatePlacement(false);
             else if (wparam == CursorTimer) self->maintainCursor();
             return 0;
+        case CursorMoveMessage:
+            self->maintainCursor();
+            return 0;
         case WM_ERASEBKGND:
             return 1;
         case WM_PAINT:
@@ -403,6 +418,7 @@ struct OverlayHost::Impl {
             if (self->beginScrollDrag(GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam))) return 0;
             break;
         case WM_MOUSEMOVE:
+            self->maintainCursor();
             if (self->draggingScroll) {
                 self->continueScrollDrag(GET_Y_LPARAM(lparam));
                 return 0;
@@ -459,9 +475,11 @@ struct OverlayHost::Impl {
     void hideOverlay() {
         visible = false;
         draggingScroll = false;
+        dropdownActive = false;
         if (GetCapture() == window.load()) ReleaseCapture();
         ShowWindow(window.load(), SW_HIDE);
         if (cursorWindow != nullptr) ShowWindow(cursorWindow, SW_HIDE);
+        softwareCursorShown = false;
         restoreCursorVisibility();
         if (IsWindow(gameWindow)) SetForegroundWindow(gameWindow);
     }
@@ -486,14 +504,46 @@ struct OverlayHost::Impl {
 
     void maintainCursor() {
         if (!visible || !IsWindowVisible(window.load()) || cursorWindow == nullptr) return;
+        if (dropdownActive) {
+            if (softwareCursorShown) ShowWindow(cursorWindow, SW_HIDE);
+            softwareCursorShown = false;
+            SetCursor(arrowCursor());
+            return;
+        }
         POINT point{};
         RECT overlayRect{};
         if (GetCursorPos(&point) && GetWindowRect(window.load(), &overlayRect) &&
             PtInRect(&overlayRect, point)) {
             SetCursor(transparentCursor);
-            SetWindowPos(cursorWindow, HWND_TOPMOST, point.x, point.y, 32, 32,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        } else ShowWindow(cursorWindow, SW_HIDE);
+            if (point.x != lastCursorPosition.x || point.y != lastCursorPosition.y) {
+                SetWindowPos(cursorWindow, nullptr, point.x, point.y, 0, 0,
+                    SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOSENDCHANGING);
+                lastCursorPosition = point;
+            }
+            if (!softwareCursorShown) {
+                ShowWindow(cursorWindow, SW_SHOWNOACTIVATE);
+                softwareCursorShown = true;
+            }
+        } else if (softwareCursorShown) {
+            ShowWindow(cursorWindow, SW_HIDE);
+            softwareCursorShown = false;
+        }
+    }
+
+    void beginNativeDropdown() {
+        dropdownActive = true;
+        if (cursorWindow != nullptr) ShowWindow(cursorWindow, SW_HIDE);
+        softwareCursorShown = false;
+        restoreCursorVisibility();
+        SetCursor(arrowCursor());
+    }
+
+    void endNativeDropdown() {
+        dropdownActive = false;
+        if (visible) {
+            hideSystemCursor();
+            maintainCursor();
+        }
     }
 
     void createControls(HWND parent) {
@@ -512,7 +562,7 @@ struct OverlayHost::Impl {
             SetWindowSubclass(filterCombos[index], controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
             COMBOBOXINFO info{sizeof(info)};
             if (GetComboBoxInfo(filterCombos[index], &info) && info.hwndList != nullptr)
-                SetWindowSubclass(info.hwndList, controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(transparentCursor));
+                SetWindowSubclass(info.hwndList, controlSubclassProc, 1, reinterpret_cast<DWORD_PTR>(arrowCursor()));
         }
         hideVanilla = CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_TABSTOP | BS_AUTOCHECKBOX,
             0, 0, 22, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(HideVanillaId)), GetModuleHandleW(nullptr), nullptr);
@@ -524,7 +574,7 @@ struct OverlayHost::Impl {
             0, 0, 130, 28, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ExactRunesLabelId)), GetModuleHandleW(nullptr), nullptr);
         resetFilters = CreateWindowExW(0, L"BUTTON", L"RESET FILTERS", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
             0, 0, 130, 30, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(ResetFiltersId)), GetModuleHandleW(nullptr), nullptr);
-        runeListLabel = CreateWindowExW(0, L"STATIC", L"RUNES ONLY", WS_CHILD,
+        runeListLabel = CreateWindowExW(0, L"STATIC", L"SELECT RUNES (MULTIPLE)", WS_CHILD,
             0, 0, 100, 20, parent, nullptr, GetModuleHandleW(nullptr), nullptr);
         runeList = CreateWindowExW(0, L"LISTBOX", L"", WS_CHILD | WS_TABSTOP | WS_BORDER | WS_VSCROLL |
             LBS_MULTIPLESEL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
@@ -646,6 +696,15 @@ struct OverlayHost::Impl {
 
     void controlChanged(int id, int notification) {
         if (updatingControls) return;
+        const bool combo = id >= ComboFirstId && id < ComboFirstId + static_cast<int>(filterCombos.size());
+        if (combo && notification == CBN_DROPDOWN) {
+            beginNativeDropdown();
+            return;
+        }
+        if (combo && notification == CBN_CLOSEUP) {
+            endNativeDropdown();
+            return;
+        }
         const size_t tab = model.activeTab();
         auto& filter = model.filters(tab);
         bool changed = false;
@@ -659,7 +718,7 @@ struct OverlayHost::Impl {
             if (bytes > 0) WideCharToMultiByte(CP_UTF8, 0, value.data(), length, utf8.data(), bytes, nullptr, nullptr);
             filter.text = std::move(utf8);
             changed = true;
-        } else if (id >= ComboFirstId && id < ComboFirstId + static_cast<int>(filterCombos.size()) && notification == CBN_SELCHANGE) {
+        } else if (combo && notification == CBN_SELCHANGE) {
             const size_t index = static_cast<size_t>(id - ComboFirstId);
             const int selection = static_cast<int>(SendMessageW(filterCombos[index], CB_GETCURSEL, 0, 0));
             const std::string value = selection >= 0 && static_cast<size_t>(selection) < comboValues[index].size() ? comboValues[index][static_cast<size_t>(selection)] : "";

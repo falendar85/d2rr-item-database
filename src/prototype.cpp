@@ -398,10 +398,11 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t targetPage, siz
     return detail;
 }
 
-std::string buildPrototypeLayout(const PrototypeViewModel& model) {
+std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::string& localId, size_t tab, size_t firstPage, size_t pageLimit) {
+    if (tab >= Tabs.size() || firstPage >= model.pageCount(tab) || pageLimit == 0) throw std::out_of_range("Prototype panel slice is invalid");
     Json anchorChildren = Json::array();
     anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2688, 70), centeredTitleStyle()));
-    anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
+    anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/" + localId));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
         anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(50 + static_cast<int>(i) * 520, 115, 520, 72),
@@ -409,10 +410,10 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     }
 
     static constexpr std::array<const char*, 4> singularLabels{"unique item", "set", "runeword", "base family"};
-    for (size_t tab = 0; tab < Tabs.size(); ++tab) {
-        Json pages = Json::array();
-        const std::string prefix = std::string(Tabs[tab]);
-        for (size_t targetPage = 0; targetPage < model.pageCount(tab); ++targetPage) {
+    Json pages = Json::array();
+    const std::string prefix = std::string(Tabs[tab]);
+    const size_t lastPage = std::min(model.pageCount(tab), firstPage + pageLimit);
+    for (size_t targetPage = firstPage; targetPage < lastPage; ++targetPage) {
             Json children = Json::array();
             const size_t first = targetPage * model.pageSize() + 1;
             const size_t last = targetPage * model.pageSize() + model.visibleCount(tab, targetPage);
@@ -455,15 +456,14 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model) {
                 "PanelManager:ClosePanel:item-database/action/page/" + prefix + "/" + std::to_string(targetPage) + "/next"));
             children.push_back(textWidget("PageNumber" + pageSuffix, "Page " + std::to_string(targetPage + 1) + " of " +
                 std::to_string(model.pageCount(tab)), rect(45, 860, 610, 45), detailTextStyle()));
-            pages.push_back({{"type", "Widget"}, {"name", "Page" + pageSuffix}, {"fields", {
-                {"rect", rect(0, 0, 2620, 940)}, {"visible", targetPage == model.page(tab)}}}, {"children", std::move(children)}});
-        }
-        anchorChildren.push_back({{"type", "Widget"}, {"name", "Pane" + std::to_string(tab)},
-                                  {"fields", {{"rect", rect(0, 210, 2620, 940)}}}, {"children", std::move(pages)}});
+        pages.push_back({{"type", "Widget"}, {"name", "Page" + pageSuffix}, {"fields", {
+            {"rect", rect(0, 0, 2620, 940)}, {"visible", targetPage == model.page(tab)}}}, {"children", std::move(children)}});
     }
+    anchorChildren.push_back({{"type", "Widget"}, {"name", "Pane" + std::to_string(tab)},
+                              {"fields", {{"rect", rect(0, 210, 2620, 940)}}}, {"children", std::move(pages)}});
 
     Json root = {
-        {"type", "Panel"}, {"name", "item-database/ItemDatabase"},
+        {"type", "Panel"}, {"name", "item-database/" + localId},
         {"fields", {{"priority", 9002}, {"fitToParent", true}}},
         {"children", Json::array({
             {{"type", "RectangleWidget"}, {"name", "ScreenDim"}, {"fields", {{"fitToScreen", true}, {"color", Json::array({0.0, 0.0, 0.0, 0.82})}}},

@@ -75,7 +75,7 @@ int main(int argc,char** argv){try{
     const auto* detailTitle=findNode(layout,"DetailTitle0_0_0");check(detailTitle!=nullptr&&(*detailTitle)["fields"]["style"]["alignment"]["h"]=="center","centered item title");
     const auto* detailText=findNode(layout,"DetailText0_0_0");check(detailText!=nullptr&&(*detailText)["fields"]["style"]["alignment"]["v"]=="top","top-aligned detail text");
     check((*detailText)["fields"]["style"]["pointSize"]=="$SmallFontSize","bounded detail font size");
-    for(size_t i=0;i<4;++i)check(findNode(layout,"Pane"+std::to_string(i))!=nullptr,"tab pane");
+    check(findNode(layout,"Pane0")!=nullptr&&findNode(layout,"Pane1")==nullptr,"sliced tab pane");
     std::cout<<checks<<" checks passed\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL after "<<checks<<": "<<e.what()<<"\n";return 1;}}
 

@@ -1,4 +1,5 @@
 #include <itemdb/prototype.hpp>
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 
@@ -91,16 +92,44 @@ int main(int argc, char** argv) {
             require((*button)["fields"]["rect"]["width"] == 520 && (*button)["fields"]["text/style"] == "$StyleFEMultiLineButtonText",
                     "tab label is not centered in its full button frame");
         }
+        size_t chunkCount = 0;
+        size_t aggregateChunkBytes = 0;
         for (size_t tab = 0; tab < Tabs.size(); ++tab) {
-            require(findNode(layout, "Pane" + std::to_string(tab)) != nullptr, "tab pane missing");
-            require(findNode(layout, "Page" + std::to_string(tab) + "_0") != nullptr, "first tab page missing");
-            require(findNode(layout, "Page" + std::to_string(tab) + "_" + std::to_string(model.pageCount(tab) - 1)) != nullptr, "last tab page missing");
-            const auto* count = findNode(layout, "Count" + std::to_string(tab) + "_0");
+            for (size_t firstPage = 0; firstPage < model.pageCount(tab); firstPage += PrototypePagesPerPanel) {
+                const std::string chunkId = "All-" + std::to_string(tab) + "-" + std::to_string(chunkCount);
+                const auto chunkText = buildPrototypeLayout(model, chunkId, tab, firstPage, PrototypePagesPerPanel);
+                aggregateChunkBytes += chunkText.size();
+                require(Json::parse(chunkText)["name"] == "item-database/" + chunkId, "generated chunk root invalid");
+                ++chunkCount;
+            }
+        }
+        require(chunkCount == 32, "panel chunk count exceeds the tested registration plan");
+        require(aggregateChunkBytes < 64ull * 1024 * 1024, "aggregate panel chunks exceed the loader resource budget");
+        for (size_t tab = 0; tab < Tabs.size(); ++tab) {
+            const std::string localId = "Test-" + std::to_string(tab);
+            const auto tabLayoutText = buildPrototypeLayout(model, localId, tab, 0, PrototypePagesPerPanel);
+            require(tabLayoutText.size() < 2ull * 1024 * 1024, "panel chunk is unexpectedly large");
+            const auto tabLayout = Json::parse(tabLayoutText);
+            require(tabLayout["name"] == "item-database/" + localId, "chunk panel root invalid");
+            const auto* chunkClose = findNode(tabLayout, "CloseButton");
+            require(chunkClose != nullptr && (*chunkClose)["fields"]["onClickMessage"] ==
+                    "PanelManager:ClosePanel:item-database/" + localId, "chunk close message invalid");
+            require(findNode(tabLayout, "Pane" + std::to_string(tab)) != nullptr, "tab pane missing");
+            require(findNode(tabLayout, "Pane" + std::to_string((tab + 1) % Tabs.size())) == nullptr, "chunk contains another tab's pane");
+            require(findNode(tabLayout, "Page" + std::to_string(tab) + "_0") != nullptr, "first tab page missing");
+            const size_t finalChunkPage = std::min(PrototypePagesPerPanel, model.pageCount(tab)) - 1;
+            require(findNode(tabLayout, "Page" + std::to_string(tab) + "_" + std::to_string(finalChunkPage)) != nullptr, "last page in first chunk missing");
+            require(findNode(tabLayout, "Page" + std::to_string(tab) + "_" + std::to_string(PrototypePagesPerPanel)) == nullptr, "chunk rendered too many pages");
+            const size_t lastChunkStart = ((model.pageCount(tab) - 1) / PrototypePagesPerPanel) * PrototypePagesPerPanel;
+            const auto lastChunk = Json::parse(buildPrototypeLayout(model, localId + "-last", tab, lastChunkStart, PrototypePagesPerPanel));
+            require(findNode(lastChunk, "Page" + std::to_string(tab) + "_" + std::to_string(model.pageCount(tab) - 1)) != nullptr,
+                    "final catalog page missing from final chunk");
+            const auto* count = findNode(tabLayout, "Count" + std::to_string(tab) + "_0");
             require(count != nullptr && (*count)["fields"]["rect"]["y"] == 20, "tab count was not lowered");
             const auto pageSuffix = std::to_string(tab) + "_0";
-            const auto* previous = findNode(layout, "Previous" + pageSuffix);
-            const auto* next = findNode(layout, "Next" + pageSuffix);
-            const auto* pageNumber = findNode(layout, "PageNumber" + pageSuffix);
+            const auto* previous = findNode(tabLayout, "Previous" + pageSuffix);
+            const auto* next = findNode(tabLayout, "Next" + pageSuffix);
+            const auto* pageNumber = findNode(tabLayout, "PageNumber" + pageSuffix);
             require(previous != nullptr && next != nullptr && pageNumber != nullptr, "page controls missing");
             require((*previous)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/page/" +
                 std::string(Tabs[tab]) + "/0/previous", "previous page message invalid");
@@ -108,43 +137,43 @@ int main(int argc, char** argv) {
                 std::string(Tabs[tab]) + "/0/next", "next page message invalid");
             for (size_t row = 0; row < PrototypePageSize; ++row) {
                 const auto suffix = std::to_string(tab) + "_0_" + std::to_string(row);
-                const auto* button = findNode(layout, "Row" + suffix);
+                const auto* button = findNode(tabLayout, "Row" + suffix);
                 require(button != nullptr, "tab row widget missing");
                 require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" +
                     std::string(Tabs[tab]) + "/0/" + std::to_string(row), "tab row message invalid");
                 require((*button)["fields"]["rect"]["y"] == 85 + static_cast<int>(row) * 78, "tab row was not lowered");
-                require(findNode(layout, "Detail" + suffix) != nullptr, "tab detail widget missing");
+                require(findNode(tabLayout, "Detail" + suffix) != nullptr, "tab detail widget missing");
                 if (tab == 1) {
-                    require(findNode(layout, "SetDetailTitle" + suffix) != nullptr, "set title missing");
-                    const auto* scroll = findNode(layout, "SetScrollController" + suffix);
+                    require(findNode(tabLayout, "SetDetailTitle" + suffix) != nullptr, "set title missing");
+                    const auto* scroll = findNode(tabLayout, "SetScrollController" + suffix);
                     require(scroll != nullptr && (*scroll)["fields"]["rect"]["height"] == 820, "bounded set scrollbar missing");
-                    require(findNode(layout, "SetScrollTrack" + suffix) != nullptr, "bounded set scroll track missing");
-                    require(findNode(layout, "SetScrollView" + suffix) != nullptr, "set scroll view missing");
-                    const auto* setText = findNode(layout, "SetDetailText" + suffix);
+                    require(findNode(tabLayout, "SetScrollTrack" + suffix) != nullptr, "bounded set scroll track missing");
+                    require(findNode(tabLayout, "SetScrollView" + suffix) != nullptr, "set scroll view missing");
+                    const auto* setText = findNode(tabLayout, "SetDetailText" + suffix);
                     require(setText != nullptr && (*setText)["fields"]["text"].get<std::string>().find("SET BONUSES") != std::string::npos,
                             "complete set detail content missing");
                 } else if (tab == 3) {
-                    require(findNode(layout, "BaseTitle" + suffix + "_0") != nullptr, "base family title missing");
-                    const auto* baseText = findNode(layout, "BaseText" + suffix + "_0");
+                    require(findNode(tabLayout, "BaseTitle" + suffix + "_0") != nullptr, "base family title missing");
+                    const auto* baseText = findNode(tabLayout, "BaseText" + suffix + "_0");
                     require(baseText != nullptr, "base family detail missing");
                     require((*baseText)["fields"]["rect"]["width"] == 500, "base family columns were not widened");
                     require((*baseText)["fields"]["style"]["alignment"]["h"] == "center", "base detail text is not centered");
-                    const auto* baseTitle = findNode(layout, "BaseTitle" + suffix + "_0");
+                    const auto* baseTitle = findNode(tabLayout, "BaseTitle" + suffix + "_0");
                     require(baseTitle != nullptr && (*baseTitle)["fields"]["rect"]["width"] == (*baseText)["fields"]["rect"]["width"] &&
                             (*baseTitle)["fields"]["style"]["alignment"]["h"] == "center", "base title and detail column centers differ");
-                    if (const auto* secondCard = findNode(layout, "BaseCard" + suffix + "_1"))
+                    if (const auto* secondCard = findNode(tabLayout, "BaseCard" + suffix + "_1"))
                         require((*secondCard)["fields"]["rect"]["x"] == 580, "base cards do not have the enlarged gutter");
                     require((*baseText)["fields"]["text"].get<std::string>().find("Automagic") == std::string::npos,
                             "base family detail still includes automagic overflow");
                 } else {
-                    const auto* detailTitle = findNode(layout, "DetailTitle" + suffix);
+                    const auto* detailTitle = findNode(tabLayout, "DetailTitle" + suffix);
                     require(detailTitle != nullptr && (*detailTitle)["fields"]["style"]["alignment"]["h"] == "center", "item title is not centered");
-                    const auto* detailText = findNode(layout, "DetailText" + suffix);
+                    const auto* detailText = findNode(tabLayout, "DetailText" + suffix);
                     require(detailText != nullptr && (*detailText)["fields"]["style"]["alignment"]["v"] == "top", "detail text is not top aligned");
                     require((*detailText)["fields"]["style"]["pointSize"] == "$SmallFontSize", "detail text does not use the bounded font size");
                 }
             }
-            require(findNode(layout, "Row" + std::to_string(tab) + "_0_8") == nullptr, "tab rendered too many rows per page");
+            require(findNode(tabLayout, "Row" + std::to_string(tab) + "_0_8") == nullptr, "tab rendered too many rows per page");
         }
         std::cout << "Prototype smoke passed: " << database.records.size() << " records, "
                   << model.uniqueCount() << " Uniques, " << layoutText.size() << " layout bytes\n";

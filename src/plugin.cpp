@@ -1,10 +1,12 @@
 #include <D2RLPlugin/api.h>
 #include <itemdb/prototype.hpp>
+#include <algorithm>
 #include <charconv>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <vector>
 
 namespace {
 constexpr D2RL::PluginInfo PluginInfo {
@@ -25,14 +27,30 @@ const D2RL::WidgetService* widgets = nullptr;
 const D2RL::SharedEventService* events = nullptr;
 const D2RL::InputService* input = nullptr;
 const D2RL::ThreadService* threads = nullptr;
-D2RL::Panels::RegistrationHandle panel = D2RL::Panels::InvalidHandle;
-D2RL::Resources::RegistrationHandle layoutResource = D2RL::Resources::InvalidHandle;
 D2RL::SharedEvents::ListenerHandle messageListener = D2RL::SharedEvents::InvalidHandle;
 D2RL::Input::ActionHandle openAction = D2RL::Input::InvalidHandle;
 std::unique_ptr<itemdb::Database> database;
 std::unique_ptr<itemdb::PrototypeViewModel> model;
-std::string layout;
-bool pagesInitialized = false;
+
+struct PanelChunk {
+    size_t tab = 0;
+    size_t firstPage = 0;
+    size_t pageCount = 0;
+    std::string localId;
+    D2RL::Resources::RegistrationHandle resource = D2RL::Resources::InvalidHandle;
+    D2RL::Panels::RegistrationHandle panel = D2RL::Panels::InvalidHandle;
+};
+
+std::vector<PanelChunk> panelChunks;
+
+PanelChunk* chunkFor(size_t tab, size_t page) noexcept {
+    for (auto& chunk : panelChunks) if (chunk.tab == tab && page >= chunk.firstPage && page < chunk.firstPage + chunk.pageCount) return &chunk;
+    return nullptr;
+}
+
+PanelChunk* currentChunk() noexcept {
+    return model == nullptr ? nullptr : chunkFor(model->activeTab(), model->page(model->activeTab()));
+}
 
 void logResult(const char* prefix, uint32_t result) noexcept {
     if (pluginContext == nullptr) return;
@@ -73,45 +91,46 @@ bool setEnabled(D2RL::Widgets::WidgetHandle root, const std::string& name, bool 
 
 bool applyView() {
     if (pluginContext == nullptr || widgets == nullptr || model == nullptr) return false;
+    auto* chunk = currentChunk();
+    if (chunk == nullptr) return false;
     D2RL::Widgets::WidgetHandle root = D2RL::Widgets::InvalidHandle;
-    auto result = widgets->findPanel(pluginContext, "item-database/ItemDatabase", &root);
+    const std::string panelName = "item-database/" + chunk->localId;
+    auto result = widgets->findPanel(pluginContext, panelName.c_str(), &root);
     if (result != D2RL::Widgets::Result::Success) {
         logResult("Item Database panel widget lookup failed", static_cast<uint32_t>(result));
         return false;
     }
     bool ok = true;
-    for (size_t tab = 0; tab < itemdb::Tabs.size(); ++tab) {
-        const bool active = model->activeTab() == tab;
-        const std::string pane = "Pane" + std::to_string(tab);
-        ok = setVisible(root, pane, active) && ok;
-        ok = setEnabled(root, pane, active) && ok;
-        if (!pagesInitialized) {
-            for (size_t page = 0; page < model->pageCount(tab); ++page) {
-                const bool current = page == model->page(tab);
-                const std::string pageName = "Page" + std::to_string(tab) + "_" + std::to_string(page);
-                ok = setVisible(root, pageName, current) && ok;
-                ok = setEnabled(root, pageName, current) && ok;
-            }
-        }
-        for (size_t row = 0; row < model->visibleCount(tab); ++row) {
-            const std::string suffix = std::to_string(tab) + "_" + std::to_string(model->page(tab)) + "_" + std::to_string(row);
-            const bool selected = active && model->selectedRow(tab) == row;
-            ok = setEnabled(root, "Row" + suffix, active) && ok;
-            ok = setVisible(root, "Detail" + suffix, selected) && ok;
-            ok = setEnabled(root, "Detail" + suffix, selected) && ok;
-        }
-        const std::string pageSuffix = std::to_string(tab) + "_" + std::to_string(model->page(tab));
-        ok = setEnabled(root, "Previous" + pageSuffix, active && model->page(tab) > 0) && ok;
-        ok = setEnabled(root, "Next" + pageSuffix, active && model->page(tab) + 1 < model->pageCount(tab)) && ok;
+    const size_t tab = model->activeTab();
+    const std::string pane = "Pane" + std::to_string(tab);
+    ok = setVisible(root, pane, true) && ok;
+    ok = setEnabled(root, pane, true) && ok;
+    for (size_t page = chunk->firstPage; page < chunk->firstPage + chunk->pageCount; ++page) {
+        const bool current = page == model->page(tab);
+        const std::string pageName = "Page" + std::to_string(tab) + "_" + std::to_string(page);
+        ok = setVisible(root, pageName, current) && ok;
+        ok = setEnabled(root, pageName, current) && ok;
     }
-    if (ok) pagesInitialized = true;
+    for (size_t row = 0; row < model->visibleCount(tab); ++row) {
+        const std::string suffix = std::to_string(tab) + "_" + std::to_string(model->page(tab)) + "_" + std::to_string(row);
+        const bool selected = model->selectedRow(tab) == row;
+        ok = setEnabled(root, "Row" + suffix, true) && ok;
+        ok = setVisible(root, "Detail" + suffix, selected) && ok;
+        ok = setEnabled(root, "Detail" + suffix, selected) && ok;
+    }
+    const std::string pageSuffix = std::to_string(tab) + "_" + std::to_string(model->page(tab));
+    ok = setEnabled(root, "Previous" + pageSuffix, model->page(tab) > 0) && ok;
+    ok = setEnabled(root, "Next" + pageSuffix, model->page(tab) + 1 < model->pageCount(tab)) && ok;
     return ok;
 }
 
 bool showPage(size_t tab, size_t oldPage, size_t newPage) {
     if (pluginContext == nullptr || widgets == nullptr) return false;
     D2RL::Widgets::WidgetHandle root = D2RL::Widgets::InvalidHandle;
-    if (widgets->findPanel(pluginContext, "item-database/ItemDatabase", &root) != D2RL::Widgets::Result::Success) return false;
+    auto* chunk = chunkFor(tab, oldPage);
+    if (chunk == nullptr || newPage < chunk->firstPage || newPage >= chunk->firstPage + chunk->pageCount) return false;
+    const std::string panelName = "item-database/" + chunk->localId;
+    if (widgets->findPanel(pluginContext, panelName.c_str(), &root) != D2RL::Widgets::Result::Success) return false;
     const std::string oldName = "Page" + std::to_string(tab) + "_" + std::to_string(oldPage);
     const std::string newName = "Page" + std::to_string(tab) + "_" + std::to_string(newPage);
     bool ok = setVisible(root, oldName, false);
@@ -132,7 +151,12 @@ void logSelectedDetail() {
 void openPanelOnUiThread(const D2RL::PluginContext* plugin, void*) noexcept {
     try {
         if (plugin == nullptr || panels == nullptr) return;
-        const auto result = panels->openPanel(plugin, panel);
+        auto* chunk = currentChunk();
+        if (chunk == nullptr) {
+            plugin->LogError("Item Database panel chunk unavailable");
+            return;
+        }
+        const auto result = panels->openPanel(plugin, chunk->panel);
         if (result != D2RL::Panels::Result::Success) {
             logResult("Item Database panel open failed", static_cast<uint32_t>(result));
             return;
@@ -152,15 +176,19 @@ void openPanelOnUiThread(const D2RL::PluginContext* plugin, void*) noexcept {
 
 void closePanel() {
     if (pluginContext == nullptr || panels == nullptr) return;
-    const auto result = panels->closePanel(pluginContext, panel);
+    auto* chunk = currentChunk();
+    if (chunk == nullptr) return;
+    const auto result = panels->closePanel(pluginContext, chunk->panel);
     if (result == D2RL::Panels::Result::Success) pluginContext->LogInfo("Item Database panel closed");
     else logResult("Item Database panel close failed", static_cast<uint32_t>(result));
 }
 
 void togglePanel() {
     if (pluginContext == nullptr || panels == nullptr) return;
+    auto* chunk = currentChunk();
+    if (chunk == nullptr) return;
     D2RL::Panels::PanelInfo info{.structSize = D2RL::Panels::PanelInfoSize};
-    if (panels->getPanelInfo(pluginContext, panel, &info) == D2RL::Panels::Result::Success &&
+    if (panels->getPanelInfo(pluginContext, chunk->panel, &info) == D2RL::Panels::Result::Success &&
         info.presentationState == D2RL::Panels::PresentationState::Open) {
         closePanel();
         return;
@@ -222,13 +250,15 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         const char* tabName = action + sizeof(TabPrefix) - 1;
         size_t tab = itemdb::Tabs.size();
         for (size_t i = 0; i < itemdb::Tabs.size(); ++i) if (std::strcmp(tabName, itemdb::Tabs[i]) == 0) tab = i;
+        auto* oldChunk = currentChunk();
         if (!model->switchTab(tab)) {
             plugin->LogWarn("Item Database ignored an invalid tab message");
             return D2RL::SharedEvents::UiMessageAction::Consume;
         }
         const std::string message = "Item Database tab changed: " + std::string(itemdb::Tabs[tab]);
         plugin->LogInfo(message.c_str());
-        if (!applyView()) plugin->LogError("Item Database UI initialization failed while changing tabs");
+        if (oldChunk != nullptr) panels->closePanel(plugin, oldChunk->panel);
+        openPanelOnUiThread(plugin, nullptr);
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }
     constexpr char SelectPrefix[] = "select/";
@@ -291,6 +321,7 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
             return D2RL::SharedEvents::UiMessageAction::Consume;
         }
         const std::string direction(pageSlash + 1);
+        auto* oldChunk = currentChunk();
         const bool changed = direction == "previous" ? model->previousPage() : direction == "next" ? model->nextPage() : false;
         if (!changed) {
             plugin->LogWarn("Item Database ignored an invalid page change");
@@ -300,8 +331,13 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         const std::string message = "Item Database page changed: " + tabName + " " + std::to_string(targetPage + 1) + "/" +
             std::to_string(model->pageCount(model->activeTab()));
         plugin->LogInfo(message.c_str());
-        if (!showPage(model->activeTab(), sourcePage, targetPage) || !applyView()) plugin->LogError("Item Database UI failed while changing pages");
-        else logSelectedDetail();
+        auto* newChunk = currentChunk();
+        if (oldChunk != newChunk) {
+            if (oldChunk != nullptr) panels->closePanel(plugin, oldChunk->panel);
+            openPanelOnUiThread(plugin, nullptr);
+        } else if (!showPage(model->activeTab(), sourcePage, targetPage) || !applyView()) {
+            plugin->LogError("Item Database UI failed while changing pages");
+        } else logSelectedDetail();
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }
     return D2RL::SharedEvents::UiMessageAction::Continue;
@@ -348,33 +384,46 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
         if (!std::filesystem::exists(databasePath)) databasePath = std::filesystem::path(directory) / L"database.json";
         database = std::make_unique<itemdb::Database>(itemdb::Database::load(databasePath));
         model = std::make_unique<itemdb::PrototypeViewModel>(*database);
-        layout = itemdb::buildPrototypeLayout(*model);
         const std::string loaded = "Item Database database loaded: " + std::to_string(database->records.size()) +
             " records, " + std::to_string(model->uniqueCount()) + " Uniques";
         plugin->LogInfo(loaded.c_str());
 
-        const D2RL::Resources::ResourceRegistration resource{
-            .structSize = D2RL::Resources::ResourceRegistrationSize,
-            .path = "data/global/ui/layouts/item-database/ItemDatabasehd.json",
-            .bytes = layout.data(),
-            .byteCount = layout.size(),
-        };
-        auto result = resources->registerResource(plugin, &resource, &layoutResource);
-        if (result != D2RL::Resources::Result::Success) {
-            logResult("Item Database layout registration failed", static_cast<uint32_t>(result));
-            return false;
+        for (size_t tab = 0; tab < itemdb::Tabs.size(); ++tab) {
+            for (size_t firstPage = 0, chunkNumber = 0; firstPage < model->pageCount(tab);
+                 firstPage += itemdb::PrototypePagesPerPanel, ++chunkNumber) {
+                PanelChunk chunk;
+                chunk.tab = tab;
+                chunk.firstPage = firstPage;
+                chunk.pageCount = std::min(itemdb::PrototypePagesPerPanel, model->pageCount(tab) - firstPage);
+                chunk.localId = "ItemDatabase-" + std::to_string(tab) + "-" + std::to_string(chunkNumber);
+                const std::string resourcePath = "data/global/ui/layouts/item-database/" + chunk.localId + "hd.json";
+                const std::string chunkLayout = itemdb::buildPrototypeLayout(*model, chunk.localId, tab, firstPage, chunk.pageCount);
+                const D2RL::Resources::ResourceRegistration resource{
+                    .structSize = D2RL::Resources::ResourceRegistrationSize,
+                    .path = resourcePath.c_str(),
+                    .bytes = chunkLayout.data(),
+                    .byteCount = chunkLayout.size(),
+                };
+                auto result = resources->registerResource(plugin, &resource, &chunk.resource);
+                if (result != D2RL::Resources::Result::Success) {
+                    logResult("Item Database layout chunk registration failed", static_cast<uint32_t>(result));
+                    return false;
+                }
+                const D2RL::Panels::PanelRegistration registration{
+                    .structSize = D2RL::Panels::PanelRegistrationSize,
+                    .flags = D2RL::Panels::PanelFlags::CloseOnEscape,
+                    .localId = chunk.localId.c_str(),
+                };
+                auto panelResult = panels->registerPanel(plugin, &registration, &chunk.panel);
+                if (panelResult != D2RL::Panels::Result::Success) {
+                    logResult("Item Database panel chunk registration failed", static_cast<uint32_t>(panelResult));
+                    return false;
+                }
+                panelChunks.push_back(std::move(chunk));
+            }
         }
-        const D2RL::Panels::PanelRegistration registration{
-            .structSize = D2RL::Panels::PanelRegistrationSize,
-            .flags = D2RL::Panels::PanelFlags::CloseOnEscape,
-            .localId = "ItemDatabase",
-        };
-        auto panelResult = panels->registerPanel(plugin, &registration, &panel);
-        if (panelResult != D2RL::Panels::Result::Success) {
-            logResult("Item Database panel registration failed", static_cast<uint32_t>(panelResult));
-            return false;
-        }
-        plugin->LogInfo("Item Database panel registered");
+        const std::string registered = "Item Database panel chunks registered: " + std::to_string(panelChunks.size());
+        plugin->LogInfo(registered.c_str());
 
         const D2RL::SharedEvents::UiMessageListener listener{
             .structSize = D2RL::SharedEvents::UiMessageListenerSize,
@@ -424,9 +473,8 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
 
 D2RL_PLUGIN_EXPORT void D2RLoaderUnloadPlugin() noexcept {
     if (pluginContext != nullptr) pluginContext->LogInfo("D2RR Item Database plugin unloaded");
-    layout.clear();
+    panelChunks.clear();
     model.reset();
     database.reset();
-    pagesInitialized = false;
     pluginContext = nullptr;
 }

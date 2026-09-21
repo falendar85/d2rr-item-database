@@ -138,12 +138,12 @@ std::vector<std::string> baseLines(const Record& record) {
     return lines;
 }
 
-std::vector<std::string> setLines(const PrototypeViewModel& model, size_t page, size_t row) {
+std::vector<std::string> setLines(const PrototypeViewModel& model, size_t row) {
     std::vector<std::string> lines;
     std::vector<std::string> setBonuses;
     std::set<std::string> seenBonuses;
-    for (size_t member = 0; member < model.groupSize(1, page, row); ++member) {
-        const auto* record = model.groupRecordAt(1, page, row, member);
+    for (size_t member = 0; member < model.groupSize(1, row); ++member) {
+        const auto* record = model.groupRecordAt(1, row, member);
         for (const auto& property : record->properties) {
             if ((property.text.starts_with("Partial set bonus:") || property.text.starts_with("Full set bonus:")) &&
                 seenBonuses.insert(property.text).second) setBonuses.push_back(property.text);
@@ -151,8 +151,8 @@ std::vector<std::string> setLines(const PrototypeViewModel& model, size_t page, 
     }
     lines.emplace_back("SET BONUSES");
     lines.insert(lines.end(), setBonuses.begin(), setBonuses.end());
-    for (size_t member = 0; member < model.groupSize(1, page, row); ++member) {
-        const auto* record = model.groupRecordAt(1, page, row, member);
+    for (size_t member = 0; member < model.groupSize(1, row); ++member) {
+        const auto* record = model.groupRecordAt(1, row, member);
         lines.emplace_back("");
         lines.emplace_back(record->name);
         addField(lines, *record, "base", "Base");
@@ -172,7 +172,7 @@ std::vector<std::string> setLines(const PrototypeViewModel& model, size_t page, 
     return lines;
 }
 
-Json scrollDetail(std::string suffix, std::string title, const std::vector<std::string>& lines, bool visible) {
+Json scrollDetail(std::string suffix, std::string title, const std::vector<std::string>& lines) {
     const std::string viewName = "SetScrollView" + suffix;
     const int contentHeight = std::max(840, static_cast<int>(lines.size()) * 34);
     Json content = Json::array();
@@ -193,8 +193,7 @@ Json scrollDetail(std::string suffix, std::string title, const std::vector<std::
         {"rect", rect(0, 70, 1540, 820)}, {"scrollControllerName", "SetScrollController" + suffix}}}, {"children", Json::array({
             {{"type", "Widget"}, {"name", "SetScrollContent" + suffix}, {"fields", {{"rect", rect(0, 0, 1540, contentHeight)}}}, {"children", std::move(content)}}
         })}});
-    return {{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {
-        {"rect", rect(690, 15, 1660, 920)}, {"visible", visible}}}, {"children", std::move(children)}};
+    return {{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1660, 920)}}}, {"children", std::move(children)}};
 }
 }
 
@@ -248,45 +247,13 @@ size_t PrototypeViewModel::count(size_t tab) const {
 }
 
 size_t PrototypeViewModel::visibleCount(size_t tab) const {
-    return visibleCount(tab, page(tab));
-}
-
-size_t PrototypeViewModel::visibleCount(size_t tab, size_t targetPage) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
-    const size_t start = targetPage * visibleLimit_;
-    if (start >= groups_[tab].size()) return 0;
-    return std::min(visibleLimit_, groups_[tab].size() - start);
-}
-
-size_t PrototypeViewModel::pageCount(size_t tab) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
-    return groups_[tab].empty() ? 0 : (groups_[tab].size() + visibleLimit_ - 1) / visibleLimit_;
-}
-
-size_t PrototypeViewModel::page(size_t tab) const {
-    if (tab >= Tabs.size()) throw std::out_of_range("Prototype tab is outside the available tabs");
-    return pages_[tab];
+    return std::min(visibleLimit_, count(tab));
 }
 
 bool PrototypeViewModel::switchTab(size_t tab) noexcept {
     if (tab >= Tabs.size()) return false;
     activeTab_ = tab;
     return true;
-}
-
-bool PrototypeViewModel::switchPage(size_t targetPage) noexcept {
-    if (targetPage >= pageCount(activeTab_)) return false;
-    pages_[activeTab_] = targetPage;
-    selectedRows_[activeTab_] = visibleCount(activeTab_) == 0 ? std::nullopt : std::optional<size_t>{0};
-    return true;
-}
-
-bool PrototypeViewModel::previousPage() noexcept {
-    return pages_[activeTab_] > 0 && switchPage(pages_[activeTab_] - 1);
-}
-
-bool PrototypeViewModel::nextPage() noexcept {
-    return pages_[activeTab_] + 1 < pageCount(activeTab_) && switchPage(pages_[activeTab_] + 1);
 }
 
 bool PrototypeViewModel::select(size_t visibleRow) noexcept {
@@ -301,46 +268,22 @@ std::optional<size_t> PrototypeViewModel::selectedRow(size_t tab) const {
 }
 
 const Record* PrototypeViewModel::recordAt(size_t tab, size_t visibleRow) const noexcept {
-    if (tab >= Tabs.size()) return nullptr;
-    return recordAt(tab, pages_[tab], visibleRow);
-}
-
-const Record* PrototypeViewModel::recordAt(size_t tab, size_t targetPage, size_t visibleRow) const noexcept {
-    return groupRecordAt(tab, targetPage, visibleRow, 0);
+    return groupRecordAt(tab, visibleRow, 0);
 }
 
 const Record* PrototypeViewModel::groupRecordAt(size_t tab, size_t visibleRow, size_t member) const noexcept {
-    if (tab >= Tabs.size()) return nullptr;
-    return groupRecordAt(tab, pages_[tab], visibleRow, member);
-}
-
-const Record* PrototypeViewModel::groupRecordAt(size_t tab, size_t targetPage, size_t visibleRow, size_t member) const noexcept {
-    const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
-    if (database_ == nullptr || tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) ||
-        absoluteRow >= groups_[tab].size() || member >= groups_[tab][absoluteRow].size()) return nullptr;
-    return &database_->records[groups_[tab][absoluteRow][member]];
+    if (database_ == nullptr || tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, groups_[tab].size()) || member >= groups_[tab][visibleRow].size()) return nullptr;
+    return &database_->records[groups_[tab][visibleRow][member]];
 }
 
 size_t PrototypeViewModel::groupSize(size_t tab, size_t visibleRow) const noexcept {
-    if (tab >= Tabs.size()) return 0;
-    return groupSize(tab, pages_[tab], visibleRow);
-}
-
-size_t PrototypeViewModel::groupSize(size_t tab, size_t targetPage, size_t visibleRow) const noexcept {
-    const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
-    if (tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= groups_[tab].size()) return 0;
-    return groups_[tab][absoluteRow].size();
+    if (tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, groups_[tab].size())) return 0;
+    return groups_[tab][visibleRow].size();
 }
 
 const std::string& PrototypeViewModel::labelAt(size_t tab, size_t visibleRow) const {
-    return labelAt(tab, page(tab), visibleRow);
-}
-
-const std::string& PrototypeViewModel::labelAt(size_t tab, size_t targetPage, size_t visibleRow) const {
-    const size_t absoluteRow = targetPage * visibleLimit_ + visibleRow;
-    if (tab >= Tabs.size() || targetPage >= pageCount(tab) || visibleRow >= visibleCount(tab, targetPage) || absoluteRow >= labels_[tab].size())
-        throw std::out_of_range("Result label is outside the prototype page");
-    return labels_[tab][absoluteRow];
+    if (tab >= Tabs.size() || visibleRow >= std::min(visibleLimit_, labels_[tab].size())) throw std::out_of_range("Result label is outside the prototype page");
+    return labels_[tab][visibleRow];
 }
 
 const Record* PrototypeViewModel::selectedRecord() const noexcept {
@@ -349,11 +292,7 @@ const Record* PrototypeViewModel::selectedRecord() const noexcept {
 }
 
 PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t visibleRow) const {
-    return detailFor(tab, page(tab), visibleRow);
-}
-
-PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t targetPage, size_t visibleRow) const {
-    const Record* record = recordAt(tab, targetPage, visibleRow);
+    const Record* record = recordAt(tab, visibleRow);
     if (record == nullptr) throw std::out_of_range("Result row is outside the prototype page");
     PrototypeDetail detail;
     detail.title = record->name;
@@ -399,12 +338,10 @@ PrototypeDetail PrototypeViewModel::detailFor(size_t tab, size_t targetPage, siz
     return detail;
 }
 
-std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::string& localId, size_t tab, size_t firstPage, size_t pageLimit) {
-    if (tab >= Tabs.size() || firstPage >= model.pageCount(tab)) throw std::out_of_range("Prototype panel slice is invalid");
-    if (pageLimit == 0) pageLimit = PrototypePagesPerPanelByTab[tab];
+std::string buildPrototypeLayout(const PrototypeViewModel& model) {
     Json anchorChildren = Json::array();
     anchorChildren.push_back(textWidget("Title", "D2R REIMAGINED ITEM DATABASE", rect(0, 15, 2688, 70), centeredTitleStyle()));
-    anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/" + localId));
+    anchorChildren.push_back(closeButtonWidget(rect(2588, 15, 80, 80), "PanelManager:ClosePanel:item-database/ItemDatabase"));
     static constexpr std::array<const char*, 4> labels{"Uniques", "Sets", "Runewords", "Bases"};
     for (size_t i = 0; i < labels.size(); ++i) {
         anchorChildren.push_back(buttonWidget("Tab" + std::to_string(i), labels[i], rect(50 + static_cast<int>(i) * 520, 115, 520, 72),
@@ -412,63 +349,47 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::str
     }
 
     static constexpr std::array<const char*, 4> singularLabels{"unique item", "set", "runeword", "base family"};
-    Json pages = Json::array();
-    const std::string prefix = std::string(Tabs[tab]);
-    const size_t lastPage = std::min(model.pageCount(tab), firstPage + pageLimit);
-    for (size_t targetPage = firstPage; targetPage < lastPage; ++targetPage) {
-            Json children = Json::array();
-            Json details = Json::array();
-            const size_t first = targetPage * model.pageSize() + 1;
-            const size_t last = targetPage * model.pageSize() + model.visibleCount(tab, targetPage);
-            const std::string pageSuffix = std::to_string(tab) + "_" + std::to_string(targetPage);
-            children.push_back(textWidget("Count" + pageSuffix, std::to_string(model.count(tab)) + " " + singularLabels[tab] +
-                (model.count(tab) == 1 ? "" : "s") + " loaded - showing " + std::to_string(first) + "-" + std::to_string(last), rect(45, 20, 650, 45)));
-            for (size_t row = 0; row < model.visibleCount(tab, targetPage); ++row) {
-                children.push_back(buttonWidget("Row" + pageSuffix + "_" + std::to_string(row), model.labelAt(tab, targetPage, row),
-                    rect(45, 85 + static_cast<int>(row) * 78, 610, 65),
-                    "PanelManager:ClosePanel:item-database/action/select/" + prefix + "/" + std::to_string(targetPage) + "/" + std::to_string(row)));
-                const std::string suffix = pageSuffix + "_" + std::to_string(row);
-                if (tab == 1) {
-                    details.push_back(scrollDetail(suffix, model.labelAt(tab, targetPage, row), setLines(model, targetPage, row), row == 0));
-                    continue;
-                }
-                if (tab == 3) {
-                    Json cards = Json::array();
-                    for (size_t member = 0; member < model.groupSize(tab, targetPage, row); ++member) {
-                        const auto* base = model.groupRecordAt(tab, targetPage, row, member);
-                        PrototypeDetail compact{base->name, baseLines(*base)};
-                        Json cardChildren = Json::array();
-                        cardChildren.push_back(textWidget("BaseTitle" + suffix + "_" + std::to_string(member), base->name, rect(0, 0, 500, 55), centeredTitleStyle()));
-                        cardChildren.push_back(textWidget("BaseText" + suffix + "_" + std::to_string(member), detailText(compact), rect(0, 60, 500, 810), compactDetailTextStyle()));
-                        cards.push_back({{"type", "Widget"}, {"name", "BaseCard" + suffix + "_" + std::to_string(member)},
-                            {"fields", {{"rect", rect(static_cast<int>(member) * 580, 0, 500, 880)}}}, {"children", std::move(cardChildren)}});
-                    }
-                    details.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {
-                        {"rect", rect(690, 15, 1700, 900)}, {"visible", row == 0}}}, {"children", std::move(cards)}});
-                    continue;
-                }
-                const auto detail = model.detailFor(tab, targetPage, row);
-                Json detailChildren = Json::array();
-                detailChildren.push_back(textWidget("DetailTitle" + suffix, detail.title, rect(10, 0, 1100, 60), centeredTitleStyle()));
-                detailChildren.push_back(textWidget("DetailText" + suffix, detailText(detail), rect(10, 65, 1100, 700), detailTextStyle()));
-                details.push_back({{"type", "Widget"}, {"name", "Detail" + suffix},
-                    {"fields", {{"rect", rect(720, 40, 1140, 770)}, {"visible", row == 0}}}, {"children", std::move(detailChildren)}});
+    for (size_t tab = 0; tab < Tabs.size(); ++tab) {
+        Json children = Json::array();
+        const std::string prefix = std::string(Tabs[tab]);
+        children.push_back(textWidget("Count" + std::to_string(tab), std::to_string(model.count(tab)) + " " + singularLabels[tab] +
+            (model.count(tab) == 1 ? "" : "s") + " loaded - first " + std::to_string(model.visibleCount(tab)) + " shown", rect(45, 20, 650, 45)));
+        for (size_t row = 0; row < model.visibleCount(tab); ++row) {
+            children.push_back(buttonWidget("Row" + std::to_string(tab) + "_" + std::to_string(row), model.labelAt(tab, row),
+                rect(45, 85 + static_cast<int>(row) * 78, 610, 65),
+                "PanelManager:ClosePanel:item-database/action/select/" + prefix + "/" + std::to_string(row)));
+            const std::string suffix = std::to_string(tab) + "_" + std::to_string(row);
+            if (tab == 1) {
+                children.push_back(scrollDetail(suffix, model.labelAt(tab, row), setLines(model, row)));
+                continue;
             }
-            children.push_back(buttonWidget("Previous" + pageSuffix, "Previous", rect(45, 720, 610, 65),
-                "PanelManager:ClosePanel:item-database/action/page/" + prefix + "/" + std::to_string(targetPage) + "/previous"));
-            children.push_back(buttonWidget("Next" + pageSuffix, "Next", rect(45, 790, 610, 65),
-                "PanelManager:ClosePanel:item-database/action/page/" + prefix + "/" + std::to_string(targetPage) + "/next"));
-            children.push_back(textWidget("PageNumber" + pageSuffix, "Page " + std::to_string(targetPage + 1) + " of " +
-                std::to_string(model.pageCount(tab)), rect(45, 860, 610, 45), detailTextStyle()));
-            for (auto& detail : details) children.push_back(std::move(detail));
-        pages.push_back({{"type", "Widget"}, {"name", "Page" + pageSuffix}, {"fields", {
-            {"rect", rect(0, 0, 2620, 940)}, {"visible", targetPage == model.page(tab)}}}, {"children", std::move(children)}});
+            if (tab == 3) {
+                Json cards = Json::array();
+                for (size_t member = 0; member < model.groupSize(tab, row); ++member) {
+                    const auto* base = model.groupRecordAt(tab, row, member);
+                    PrototypeDetail compact{base->name, baseLines(*base)};
+                    Json cardChildren = Json::array();
+                    cardChildren.push_back(textWidget("BaseTitle" + suffix + "_" + std::to_string(member), base->name, rect(0, 0, 500, 55), centeredTitleStyle()));
+                    cardChildren.push_back(textWidget("BaseText" + suffix + "_" + std::to_string(member), detailText(compact), rect(0, 60, 500, 810), compactDetailTextStyle()));
+                    cards.push_back({{"type", "Widget"}, {"name", "BaseCard" + suffix + "_" + std::to_string(member)},
+                        {"fields", {{"rect", rect(static_cast<int>(member) * 580, 0, 500, 880)}}}, {"children", std::move(cardChildren)}});
+                }
+                children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1700, 900)}}}, {"children", std::move(cards)}});
+                continue;
+            }
+            const auto detail = model.detailFor(tab, row);
+            Json detailChildren = Json::array();
+            detailChildren.push_back(textWidget("DetailTitle" + suffix, detail.title, rect(10, 0, 1100, 60), centeredTitleStyle()));
+            detailChildren.push_back(textWidget("DetailText" + suffix, detailText(detail), rect(10, 65, 1100, 700), detailTextStyle()));
+            children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix},
+                {"fields", {{"rect", rect(720, 40, 1140, 770)}}}, {"children", std::move(detailChildren)}});
+        }
+        anchorChildren.push_back({{"type", "Widget"}, {"name", "Pane" + std::to_string(tab)},
+                                  {"fields", {{"rect", rect(0, 210, 2620, 940)}}}, {"children", std::move(children)}});
     }
-    anchorChildren.push_back({{"type", "Widget"}, {"name", "Pane" + std::to_string(tab)},
-                              {"fields", {{"rect", rect(0, 210, 2620, 940)}}}, {"children", std::move(pages)}});
 
     Json root = {
-        {"type", "Panel"}, {"name", "item-database/" + localId},
+        {"type", "Panel"}, {"name", "item-database/ItemDatabase"},
         {"fields", {{"priority", 9002}, {"fitToParent", true}}},
         {"children", Json::array({
             {{"type", "RectangleWidget"}, {"name", "ScreenDim"}, {"fields", {{"fitToScreen", true}, {"color", Json::array({0.0, 0.0, 0.0, 0.82})}}},

@@ -172,7 +172,7 @@ std::vector<std::string> setLines(const PrototypeViewModel& model, size_t page, 
     return lines;
 }
 
-Json scrollDetail(std::string suffix, std::string title, const std::vector<std::string>& lines) {
+Json scrollDetail(std::string suffix, std::string title, const std::vector<std::string>& lines, bool visible) {
     const std::string viewName = "SetScrollView" + suffix;
     const int contentHeight = std::max(840, static_cast<int>(lines.size()) * 34);
     Json content = Json::array();
@@ -193,7 +193,8 @@ Json scrollDetail(std::string suffix, std::string title, const std::vector<std::
         {"rect", rect(0, 70, 1540, 820)}, {"scrollControllerName", "SetScrollController" + suffix}}}, {"children", Json::array({
             {{"type", "Widget"}, {"name", "SetScrollContent" + suffix}, {"fields", {{"rect", rect(0, 0, 1540, contentHeight)}}}, {"children", std::move(content)}}
         })}});
-    return {{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1660, 920)}}}, {"children", std::move(children)}};
+    return {{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {
+        {"rect", rect(690, 15, 1660, 920)}, {"visible", visible}}}, {"children", std::move(children)}};
 }
 }
 
@@ -415,6 +416,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::str
     const size_t lastPage = std::min(model.pageCount(tab), firstPage + pageLimit);
     for (size_t targetPage = firstPage; targetPage < lastPage; ++targetPage) {
             Json children = Json::array();
+            Json details = Json::array();
             const size_t first = targetPage * model.pageSize() + 1;
             const size_t last = targetPage * model.pageSize() + model.visibleCount(tab, targetPage);
             const std::string pageSuffix = std::to_string(tab) + "_" + std::to_string(targetPage);
@@ -426,7 +428,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::str
                     "PanelManager:ClosePanel:item-database/action/select/" + prefix + "/" + std::to_string(targetPage) + "/" + std::to_string(row)));
                 const std::string suffix = pageSuffix + "_" + std::to_string(row);
                 if (tab == 1) {
-                    children.push_back(scrollDetail(suffix, model.labelAt(tab, targetPage, row), setLines(model, targetPage, row)));
+                    details.push_back(scrollDetail(suffix, model.labelAt(tab, targetPage, row), setLines(model, targetPage, row), row == 0));
                     continue;
                 }
                 if (tab == 3) {
@@ -440,15 +442,16 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::str
                         cards.push_back({{"type", "Widget"}, {"name", "BaseCard" + suffix + "_" + std::to_string(member)},
                             {"fields", {{"rect", rect(static_cast<int>(member) * 580, 0, 500, 880)}}}, {"children", std::move(cardChildren)}});
                     }
-                    children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {{"rect", rect(690, 15, 1700, 900)}}}, {"children", std::move(cards)}});
+                    details.push_back({{"type", "Widget"}, {"name", "Detail" + suffix}, {"fields", {
+                        {"rect", rect(690, 15, 1700, 900)}, {"visible", row == 0}}}, {"children", std::move(cards)}});
                     continue;
                 }
                 const auto detail = model.detailFor(tab, targetPage, row);
                 Json detailChildren = Json::array();
                 detailChildren.push_back(textWidget("DetailTitle" + suffix, detail.title, rect(10, 0, 1100, 60), centeredTitleStyle()));
                 detailChildren.push_back(textWidget("DetailText" + suffix, detailText(detail), rect(10, 65, 1100, 700), detailTextStyle()));
-                children.push_back({{"type", "Widget"}, {"name", "Detail" + suffix},
-                    {"fields", {{"rect", rect(720, 40, 1140, 770)}}}, {"children", std::move(detailChildren)}});
+                details.push_back({{"type", "Widget"}, {"name", "Detail" + suffix},
+                    {"fields", {{"rect", rect(720, 40, 1140, 770)}, {"visible", row == 0}}}, {"children", std::move(detailChildren)}});
             }
             children.push_back(buttonWidget("Previous" + pageSuffix, "Previous", rect(45, 720, 610, 65),
                 "PanelManager:ClosePanel:item-database/action/page/" + prefix + "/" + std::to_string(targetPage) + "/previous"));
@@ -456,6 +459,7 @@ std::string buildPrototypeLayout(const PrototypeViewModel& model, const std::str
                 "PanelManager:ClosePanel:item-database/action/page/" + prefix + "/" + std::to_string(targetPage) + "/next"));
             children.push_back(textWidget("PageNumber" + pageSuffix, "Page " + std::to_string(targetPage + 1) + " of " +
                 std::to_string(model.pageCount(tab)), rect(45, 860, 610, 45), detailTextStyle()));
+            for (auto& detail : details) children.push_back(std::move(detail));
         pages.push_back({{"type", "Widget"}, {"name", "Page" + pageSuffix}, {"fields", {
             {"rect", rect(0, 0, 2620, 940)}, {"visible", targetPage == model.page(tab)}}}, {"children", std::move(children)}});
     }

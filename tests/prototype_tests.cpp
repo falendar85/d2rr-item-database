@@ -142,7 +142,9 @@ int main(int argc, char** argv) {
                 require((*button)["fields"]["onClickMessage"] == "PanelManager:ClosePanel:item-database/action/select/" +
                     std::string(Tabs[tab]) + "/0/" + std::to_string(row), "tab row message invalid");
                 require((*button)["fields"]["rect"]["y"] == 85 + static_cast<int>(row) * 78, "tab row was not lowered");
-                require(findNode(tabLayout, "Detail" + suffix) != nullptr, "tab detail widget missing");
+                const auto* detail = findNode(tabLayout, "Detail" + suffix);
+                require(detail != nullptr, "tab detail widget missing");
+                require((*detail)["fields"]["visible"] == (row == 0), "inactive detail is not hidden by default");
                 if (tab == 1) {
                     require(findNode(tabLayout, "SetDetailTitle" + suffix) != nullptr, "set title missing");
                     const auto* scroll = findNode(tabLayout, "SetScrollController" + suffix);

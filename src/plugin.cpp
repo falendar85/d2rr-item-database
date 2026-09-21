@@ -220,6 +220,11 @@ void openPanelOnUiThread(const D2RL::PluginContext* plugin, void*) noexcept {
     }
 }
 
+bool queuePanelOpen(const D2RL::PluginContext* plugin) {
+    return plugin != nullptr && threads != nullptr &&
+        threads->runOnUiThread(plugin, openPanelOnUiThread, nullptr) == D2RL::Threads::Result::Success;
+}
+
 void closePanel() {
     if (pluginContext == nullptr || panels == nullptr) return;
     auto* chunk = currentChunk();
@@ -305,7 +310,7 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         const std::string message = "Item Database tab changed: " + std::string(itemdb::Tabs[tab]);
         plugin->LogInfo(message.c_str());
         if (oldChunk != nullptr) panels->closePanel(plugin, oldChunk->panel);
-        openPanelOnUiThread(plugin, nullptr);
+        if (!queuePanelOpen(plugin)) plugin->LogError("Item Database could not queue the replacement tab panel");
         return D2RL::SharedEvents::UiMessageAction::Consume;
     }
     constexpr char SelectPrefix[] = "select/";
@@ -381,7 +386,7 @@ D2RL::SharedEvents::UiMessageAction handleUiMessage(const D2RL::PluginContext* p
         auto* newChunk = currentChunk();
         if (oldChunk != newChunk) {
             if (oldChunk != nullptr) panels->closePanel(plugin, oldChunk->panel);
-            openPanelOnUiThread(plugin, nullptr);
+            if (!queuePanelOpen(plugin)) plugin->LogError("Item Database could not queue the replacement page panel");
         } else if (!showPage(model->activeTab(), sourcePage, targetPage) || !applyView()) {
             plugin->LogError("Item Database UI failed while changing pages");
         } else logSelectedDetail();

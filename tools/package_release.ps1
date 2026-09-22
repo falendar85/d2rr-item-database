@@ -9,6 +9,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $root 'dist'
 $release = Join-Path $root 'release'
 $manualStage = Join-Path $dist 'manual-stage'
+$hubStage = Join-Path $dist 'hub-stage'
 
 if (-not $SkipBuild) {
     & (Join-Path $PSScriptRoot 'build.ps1') -Configuration Release -Stage
@@ -21,7 +22,7 @@ if (-not (Test-Path -LiteralPath $dll)) { throw "Missing staged release file: $d
 if ($LASTEXITCODE) { throw 'Embedded resource verification failed' }
 
 if (Test-Path -LiteralPath $dist) { Remove-Item -LiteralPath $dist -Recurse -Force }
-New-Item -ItemType Directory -Path $manualStage | Out-Null
+New-Item -ItemType Directory -Path $manualStage, $hubStage | Out-Null
 
 $manualPlugins = Join-Path $manualStage 'd2rloader/plugins'
 $manualDocs = Join-Path $manualPlugins 'item-database/docs'
@@ -42,14 +43,41 @@ Copy-Item -LiteralPath $dll -Destination $installerDll
 $manualZip = Join-Path $dist "D2RR-Item-Database-v$Version.zip"
 Compress-Archive -Path (Join-Path $manualStage '*') -DestinationPath $manualZip -CompressionLevel Optimal
 
-$hashLines = foreach ($artifact in @($installerDll, $manualZip)) {
+$hubAssets = Join-Path $hubStage 'assets'
+New-Item -ItemType Directory -Path $hubAssets | Out-Null
+Copy-Item -LiteralPath $dll -Destination $hubAssets
+
+$hubManifest = [ordered]@{
+    name = 'Item Database'
+    version = $Version
+    modVersion = $ModVersion
+    author = 'Falendar and D2RR Item Database contributors'
+    description = 'Offline searchable D2R Reimagined reference overlay. Press Alt+S to open or close it.'
+    files = @()
+    assets = @(
+        [ordered]@{
+            source = 'assets/d2rl-item-database.dll'
+            target = 'plugins/d2rl-item-database.dll'
+            targetRoot = 'd2rloader'
+        }
+    )
+}
+$hubManifest |
+    ConvertTo-Json -Depth 8 |
+    Set-Content -LiteralPath (Join-Path $hubStage 'plugininfo.json') -Encoding utf8
+
+$hubZip = Join-Path $dist "D2RR-Item-Database-Reimagined-Hub-v$Version.zip"
+Compress-Archive -Path (Join-Path $hubStage '*') -DestinationPath $hubZip -CompressionLevel Optimal
+
+$hashLines = foreach ($artifact in @($installerDll, $manualZip, $hubZip)) {
     $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifact).Hash.ToLowerInvariant()
     "$hash  $([IO.Path]::GetFileName($artifact))"
 }
 $hashLines |
     Set-Content -LiteralPath (Join-Path $dist 'SHA256SUMS.txt') -Encoding ascii
 
-Remove-Item -LiteralPath $manualStage -Recurse -Force
+Remove-Item -LiteralPath $manualStage, $hubStage -Recurse -Force
 Write-Output "Created $manualZip"
 Write-Output "Created $installerDll for D2RLoader Extension upload"
+Write-Output "Created $hubZip for a Reimagined launcher with D2RLoader asset-target support"
 Get-Content -LiteralPath (Join-Path $dist 'SHA256SUMS.txt')

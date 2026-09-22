@@ -7,6 +7,9 @@
 - Removes the runtime dependency on loose JSON files without changing the UI,
   Alt+S input action, query behavior, or overlay runtime behavior.
 - Keeps the manual mod-local installation available as a fallback.
+- Adds a Reimagined Hub wrapper package for launchers that support the
+  `d2rloader` asset target; the current public launcher still needs that small
+  packaging-path addition before the Hub ZIP can be installed safely.
 
 ## 0.5.1 - 2026-09-21
 

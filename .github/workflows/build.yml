@@ -21,8 +21,8 @@ jobs:
         run: python -m unittest discover -s tests -p "test_*.py"
       - name: Package release archives
         shell: pwsh
-        run: ./tools/package_release.ps1 -Version 0.5.2 -ModVersion 3.0.12 -SkipBuild
+        run: ./tools/package_release.ps1 -Version 0.5.3 -ModVersion 3.0.12 -SkipBuild
       - uses: actions/upload-artifact@v4
         with:
-          name: d2rr-item-database-0.5.2
+          name: d2rr-item-database-0.5.3
           path: dist/*

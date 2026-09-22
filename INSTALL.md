@@ -21,7 +21,7 @@ has been verified.
 
 ## Reimagined Hub package
 
-`D2RR-Item-Database-Reimagined-Hub-v0.5.2.zip` is prepared for the Reimagined
+`D2RR-Item-Database-Reimagined-Hub-v0.5.3.zip` is prepared for the Reimagined
 Hub's `plugininfo.json` format. Its manifest uses `targetRoot: "d2rloader"` so
 the launcher places the DLL at `mods\Reimagined\d2rloader\plugins` instead of
 inside `Reimagined.mpq`.
@@ -33,7 +33,7 @@ D2RLoader cannot discover the DLL.
 
 ## Manual GitHub Release install
 
-1. Download `D2RR-Item-Database-v0.5.2.zip` and `SHA256SUMS.txt` from the
+1. Download `D2RR-Item-Database-v0.5.3.zip` and `SHA256SUMS.txt` from the
    GitHub Release.
 2. Verify the ZIP's SHA-256 hash against `SHA256SUMS.txt`.
 3. Extract the ZIP into:

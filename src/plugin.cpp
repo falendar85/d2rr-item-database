@@ -16,7 +16,7 @@ constexpr D2RL::PluginInfo PluginInfo {
     .abiVersion = D2RL_PLUGIN_ABI_VERSION,
     .id = "item-database",
     .name = "D2RR Item Database",
-    .version = "0.5.2",
+    .version = "0.5.3",
     .author = "Falendar and contributors",
     .description = "Dynamic D2R Reimagined item database overlay.",
     .flags = D2RL::PluginFlags::Client,

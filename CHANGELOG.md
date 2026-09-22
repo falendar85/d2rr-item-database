@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 - 2026-09-22
+
+- Fixes overlapping wrapped text in Item Crafting recipe tables, including the
+  Weapons and Arrows/Bolts categories.
+
 ## 0.5.2 - 2026-09-21
 
 - Packages the complete offline database and guides inside the plugin DLL for

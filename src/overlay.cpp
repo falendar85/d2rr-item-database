@@ -1047,6 +1047,25 @@ struct OverlayHost::Impl {
         return edges;
     }
 
+    int measuredGuideCellHeight(HDC dc, const std::string& value, int width) const {
+        std::stringstream stream(value);
+        std::string line;
+        int total = 0;
+        bool measuredAny = false;
+        while (std::getline(stream, line)) {
+            measuredAny = true;
+            RECT measured{0, 0, std::max(1, width), 0};
+            const auto converted = wide(line);
+            const HFONT selected = font(DetailTextPixels);
+            const auto old = SelectObject(dc, selected);
+            DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured,
+                DT_WORDBREAK | DT_CENTER | DT_NOPREFIX | DT_CALCRECT);
+            SelectObject(dc, old); DeleteObject(selected);
+            total += std::max<int>(DetailLineHeight, measured.bottom - measured.top);
+        }
+        return measuredAny ? total : DetailLineHeight;
+    }
+
     int measuredGuideRowHeight(HDC dc, const RECT& rect, const GuideVisualRow& row) const {
         if (row.cells.empty()) return 0;
         if (row.kind == GuideRowKind::Heading) return 44;
@@ -1064,16 +1083,10 @@ struct OverlayHost::Impl {
         const auto edges = guideColumnEdges(rect, row.cells);
         int height = 54;
         for (size_t column = 0; column < row.cells.size(); ++column) {
-            RECT measured{edges[column] + 10, 0, edges[column + 1] - 10, 180};
-            const auto converted = wide(row.cells[column]);
-            const HFONT selected = font(DetailTextPixels);
-            const auto old = SelectObject(dc, selected);
-            DrawTextW(dc, converted.c_str(), static_cast<int>(converted.size()), &measured,
-                DT_WORDBREAK | DT_CENTER | DT_NOPREFIX | DT_CALCRECT);
-            SelectObject(dc, old); DeleteObject(selected);
-            height = std::max(height, static_cast<int>(measured.bottom - measured.top + 20));
+            const int contentWidth = std::max(1, edges[column + 1] - edges[column] - 16);
+            height = std::max(height, measuredGuideCellHeight(dc, row.cells[column], contentWidth) + 16);
         }
-        return std::min(height, 154);
+        return std::min(height, 360);
     }
 
     COLORREF guideTextColor(const std::string& value) const {
@@ -1112,21 +1125,37 @@ struct OverlayHost::Impl {
     }
 
     void drawGuideCell(HDC dc, const std::string& value, RECT rect, bool header) const {
-        const UINT flags = DT_WORDBREAK | DT_CENTER | DT_VCENTER | DT_NOPREFIX;
-        if (header || value.find('\n') == std::string::npos) {
-            text(dc, value, rect, header ? SiteSetText : guideTextColor(value), DetailTextPixels, flags,
-                header ? FW_BOLD : FW_NORMAL);
+        const UINT flags = DT_WORDBREAK | DT_CENTER | DT_NOPREFIX;
+        if (header) {
+            const int measured = measuredGuideCellHeight(dc, value,
+                std::max(1, static_cast<int>(rect.right - rect.left)));
+            RECT label{rect.left, rect.top + std::max(0,
+                (static_cast<int>(rect.bottom - rect.top) - measured) / 2),
+                rect.right, rect.bottom};
+            text(dc, value, label, SiteSetText, DetailTextPixels, flags, FW_BOLD);
             return;
         }
         std::vector<std::string> lines;
         std::stringstream stream(value);
         std::string line;
         while (std::getline(stream, line)) lines.push_back(line);
-        const int height = std::max(1, static_cast<int>((rect.bottom - rect.top) / std::max<size_t>(1, lines.size())));
+        if (lines.empty()) lines.emplace_back();
+        std::vector<int> heights;
+        heights.reserve(lines.size());
+        int totalHeight = 0;
+        for (const auto& part : lines) {
+            const int height = measuredGuideCellHeight(dc, part,
+                std::max(1, static_cast<int>(rect.right - rect.left)));
+            heights.push_back(height);
+            totalHeight += height;
+        }
+        int y = rect.top + std::max(0,
+            (static_cast<int>(rect.bottom - rect.top) - totalHeight) / 2);
         for (size_t index = 0; index < lines.size(); ++index) {
-            RECT part{rect.left, rect.top + static_cast<LONG>(index) * height, rect.right,
-                index + 1 == lines.size() ? rect.bottom : rect.top + static_cast<LONG>(index + 1) * height};
+            RECT part{rect.left, y, rect.right,
+                std::min<LONG>(rect.bottom, static_cast<LONG>(y + heights[index]))};
             text(dc, lines[index], part, guideTextColor(lines[index]), DetailTextPixels, flags);
+            y += heights[index];
         }
     }
 

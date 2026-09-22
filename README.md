@@ -29,7 +29,7 @@ From a PowerShell prompt with Visual Studio 2022 C++ tools installed:
 python tools/bootstrap.py
 .\tools\build.ps1 -Configuration Release -Stage
 python -m unittest discover -s tests -p "test_*.py"
-.\tools\package_release.ps1 -Version 0.5.2 -ModVersion 3.0.12
+.\tools\package_release.ps1 -Version 0.5.3 -ModVersion 3.0.12
 ```
 
 Pinned upstream revisions and dependency hashes are in `upstream.lock.json`.

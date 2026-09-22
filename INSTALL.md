@@ -12,10 +12,14 @@ Close the game and D2RLoader before installing or updating the plugin.
 ## Reimagined Hub listing
 
 The project is listed on the Reimagined Hub with permission from the Reimagined
-owner. The launcher's standard Hub package format currently installs assets
-inside `Reimagined.mpq`, while D2RLoader native extensions must be installed in
-the sibling `mods\Reimagined\d2rloader` directory. Until the launcher supports
-that native-extension destination, use the manual GitHub Release package below.
+owner. Launcher releases that support the `d2rloader` asset target can install
+`D2RR-Item-Database-Hub-v0.5.1.zip` directly from the Hub. The launcher displays
+a native-code confirmation before import, and enabling the plugin installs its
+files beneath `mods\Reimagined\d2rloader\plugins` on the next launch.
+
+Older launcher releases place all plugin assets inside `Reimagined.mpq` and
+cannot install this extension correctly. Use the manual GitHub Release package
+below until the native-extension launcher update is available.
 
 For supported ladders, the Reimagined team can also distribute the DLL through
 the launcher's approved optional-extension system.

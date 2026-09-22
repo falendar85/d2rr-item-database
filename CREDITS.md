@@ -1,28 +1,54 @@
 # Credits and acknowledgements
 
-## D2RR Item Database contributors
+## D2RR Item Database
 
-- **Falendar** — project creator, product direction, feature requirements, UI design
-  decisions, and repeated in-game testing.
-- **OpenAI Codex** — implementation, data-pipeline and query-engine development,
-  automated tests, debugging, build preparation, and packaging support.
+- **Falendar** — creator and maintainer; product direction, requirements, UI
+  design decisions, in-game acceptance testing, and release publishing.
+- **OpenAI Codex** — AI-assisted implementation, data transformation, automated
+  tests, debugging, documentation, and release preparation under Falendar's
+  direction. Codex is disclosed as a development tool, not a human author or
+  copyright holder. See `AI_DISCLOSURE.md`.
 
-## Upstream acknowledgements
+## D2R Reimagined
 
-- **D2R Reimagined contributors** — the item data and catalog behavior used as the
-  source for the generated offline database. The exact pinned source revision is
-  recorded in `upstream.lock.json` and in the generated database provenance.
-- **D2RLoader contributors** — the loader and public Plugin SDK used by the addon.
-  The SDK is distributed under the MIT License and identifies its copyright holder
-  as “D2RLoader contributors.”
-- **Niels Lohmann and JSON for Modern C++ contributors** — the JSON library used by
-  the addon. Version 3.12.0 is pinned in `upstream.lock.json`; its MIT License names
-  Niels Lohmann as copyright holder.
+Special thanks to **Collin** (`CollinHerber`), the D2R Reimagined owner, for
+authorizing distribution on the Reimagined Hub and offering optional ladder
+extension support.
 
-## Project relationship
+The offline catalog and guides are transformed from the D2R Reimagined website,
+wiki, and mod projects. The following repository contributor snapshots are
+acknowledged as upstream contributors; this does not imply each person directly
+authored the particular records included in this release.
 
-Diablo II and Diablo II: Resurrected are trademarks of Blizzard Entertainment.
-D2RR Item Database is a community addon and is not affiliated with or endorsed by
-Blizzard Entertainment, D2R Reimagined, or D2RLoader. Those projects and their
-contributors are acknowledged as upstream sources and dependencies; they are not
-represented as direct authors of this addon.
+- [Website contributors](https://github.com/D2R-Reimagined/d2r-reimagined-website/graphs/contributors):
+  CollinHerber, Delegus, Bakelt, The-Honorable, dontpanic, ad185297, pschaad,
+  zakt4n, adamkiss, AtzaMan, JJeter66, jodli, loreggia, and
+  survivorio-procrastinasn.
+- [Wiki contributors](https://github.com/D2R-Reimagined/wiki-content/graphs/contributors):
+  Vingelis, Delegus, KingPandaYumYum, The-Honorable, Slaminaiodsnips,
+  ProdigyWTF, jeff3500, Bakelt, CollinHerber, Scruphgetup, Jasper89c,
+  joakimjohnander, LionLion123, jhols27, Parapsycho, lloydss, ResBabin,
+  Cantrip-commits-crimes, Exodus92, PeterS242, survivorio-procrastinasn,
+  theagemaway, campos-ddc, SingleInfinity, kwan4game, MarleyQc,
+  jrhigers-spec.
+- [Mod contributors](https://github.com/D2R-Reimagined/d2r-reimagined-mod/graphs/contributors):
+  CollinHerber, Delegus, Bakelt, The-Honorable, Vingelis, d3m3vilurr, Harald92,
+  EmpirePhil, Doxorn, Morphime, Maowiwowi, yinyin333333,
+  Cantrip-commits-crimes, strangemolars, victoria-riley-barnett, GildyBoye,
+  KingPandaYumYum, Dys-the-Fox, ovollbrecht, VtorHdev, LeafSoap, Nick-Conrad,
+  syxxness, Malvar01, helloqzh, topknot-tbl, rb1t, pcalcao, ND-State,
+  kentonftw, Uthstar, svceon, naturalkei, LuckyOzzy, dazuki, Jasper89c,
+  D2Gambit, Cjreek.
+
+Contributor lists are a September 21, 2026 snapshot and may grow. The linked
+GitHub pages are canonical.
+
+## Runtime and build dependencies
+
+- **D2RLoader contributors**, including Plugin SDK maintainer Dimentio — public
+  Plugin SDK and integration contract, MIT License.
+- **Niels Lohmann and JSON for Modern C++ contributors** — JSON parsing library,
+  MIT License.
+
+Exact revisions and licenses appear in `upstream.lock.json` and
+`THIRD_PARTY_NOTICES.md`.

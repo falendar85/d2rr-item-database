@@ -1,0 +1,28 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned build dependencies
+        run: python tools/bootstrap.py
+      - name: Build and test C++
+        shell: pwsh
+        run: ./tools/build.ps1 -Configuration Release -Stage
+      - name: Test Python generators
+        run: python -m unittest discover -s tests -p "test_*.py"
+      - name: Package release archives
+        shell: pwsh
+        run: ./tools/package_release.ps1 -Version 0.5.0 -ModVersion 3.0.12 -SkipBuild
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d2rr-item-database-0.5.0
+          path: dist/*

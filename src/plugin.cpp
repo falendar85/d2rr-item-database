@@ -13,7 +13,7 @@ constexpr D2RL::PluginInfo PluginInfo {
     .id = "item-database",
     .name = "D2RR Item Database",
     .version = "0.5.0",
-    .author = "Falendar & OpenAI Codex",
+    .author = "Falendar and contributors",
     .description = "Dynamic D2R Reimagined item database overlay.",
     .flags = D2RL::PluginFlags::Client,
 };

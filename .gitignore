@@ -1,6 +1,7 @@
 /build*/
 /.deps/
 /release/
+/dist/
 /work/
 __pycache__/
 *.pyc

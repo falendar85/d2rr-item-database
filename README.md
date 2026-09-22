@@ -1,30 +1,50 @@
 # D2RR Item Database
 
-Work-in-progress, standalone client addon for D2RLoader SDK 0.2.0 / ABI 4.
-The project never installs itself into a game directory. Current source references are
-pinned in `upstream.lock.json`. The generated catalog is offline and read-only.
+D2RR Item Database is an offline, read-only in-game reference overlay for
+Diablo II: Resurrected – Reimagined. Press **Alt+S** to browse and search:
 
-Architecture: pinned website keyed JSON -> Python normalizer -> versioned JSON ->
-independent C++ query/state library -> D2RLoader client plugin -> Win32 game overlay.
-See `docs/RESEARCH.md` for API constraints and `docs/DATA.md` for the completed
-normalization pipeline, schema, regeneration, and validation commands.
+- uniques, sets, runewords, and base-item families;
+- cube recipes, item enchants, and item crafting; and
+- Power Orbs and corruption affixes.
 
-The current integration milestone builds a reusable overlay with eight tabs. The
-four searchable item catalogs retain site-matched filters, while Cube Recipes,
-Item Enchants, and Item Crafting reproduce the wiki's column layout and color cues.
-The Orbs tab contains the seven Power Orb guides and gear-specific corruption affixes.
-All tabs use eight-row paging and bounded detail scrolling. See
-`docs/UI-PROTOTYPE.md` for build instructions, exact manual file placement, the
-first in-game test, and the explicit verification boundary.
+The overlay provides the website-style filters, eight-result paging, item and
+recipe color cues, grouped set bonuses, three-tier base comparisons, and
+scrollable details. It does not alter items, saves, drop tables, or gameplay.
+It performs no network requests and sends no telemetry.
 
-## Credits
+## Requirements
 
-- **Falendar** — project creator, product direction, UI design decisions, and in-game testing.
-- **OpenAI Codex** — implementation, automated testing, and release preparation support.
+- Windows x64
+- Diablo II: Resurrected with D2R Reimagined 3.0.12
+- D2RLoader with Plugin ABI 4 support
 
-The generated catalog is derived from the
-[D2R Reimagined website data](https://github.com/D2R-Reimagined/d2r-reimagined-website),
-and the addon integrates through the
-[D2RLoader Plugin SDK](https://github.com/D2RLoader/PluginSDK). JSON loading uses
-[JSON for Modern C++](https://github.com/nlohmann/json). See
-[`CREDITS.md`](CREDITS.md) for the complete attribution and project relationship notes.
+See [`INSTALL.md`](INSTALL.md) for GitHub Release and Reimagined Hub installation.
+
+## Build
+
+From a PowerShell prompt with Visual Studio 2022 C++ tools installed:
+
+```powershell
+python tools/bootstrap.py
+.\tools\build.ps1 -Configuration Release -Stage
+python -m unittest discover -s tests -p "test_*.py"
+.\tools\package_release.ps1 -Version 0.5.0 -ModVersion 3.0.12
+```
+
+Pinned upstream revisions and dependency hashes are in `upstream.lock.json`.
+The architecture is: pinned source JSON/HTML -> Python normalizer -> versioned
+offline JSON -> C++ query/state library -> D2RLoader client plugin -> Win32
+overlay. More detail is in [`docs/DATA.md`](docs/DATA.md),
+[`docs/RESEARCH.md`](docs/RESEARCH.md), and
+[`docs/UI-PROTOTYPE.md`](docs/UI-PROTOTYPE.md).
+
+## Licensing and attribution
+
+Project source code is released under the MIT License. Generated catalog and
+guide data are distributed for this plugin with permission from the D2R
+Reimagined owner. See [`LICENSE`](LICENSE),
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md),
+[`CREDITS.md`](CREDITS.md), and [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md).
+
+This independent community addon is not affiliated with or endorsed by
+Blizzard Entertainment, D2R Reimagined, or D2RLoader.

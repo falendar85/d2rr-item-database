@@ -3,6 +3,7 @@
 /release/
 /dist/
 /work/
+/.maintenance/
 __pycache__/
 *.pyc
 *.user

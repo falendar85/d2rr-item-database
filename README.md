@@ -39,6 +39,21 @@ overlay. More detail is in [`docs/DATA.md`](docs/DATA.md),
 [`docs/RESEARCH.md`](docs/RESEARCH.md), and
 [`docs/UI-PROTOTYPE.md`](docs/UI-PROTOTYPE.md).
 
+## Data maintenance
+
+Future D2R Reimagined data updates use a review-first workflow:
+
+```powershell
+python tools/maintain_data.py update --dry-run
+python tools/maintain_data.py update --apply --from-work .maintenance/current
+python tools/maintain_data.py prepare-release --version X.Y.Z --mod-version 3.0.12
+```
+
+The dry run downloads and pins source revisions, regenerates both normalized
+databases with the original generators, reports source and record changes, and
+validates a staged candidate without changing tracked project files. See
+[`docs/MAINTENANCE.md`](docs/MAINTENANCE.md) for the review and release process.
+
 ## Licensing and attribution
 
 Project source code is released under the MIT License. Generated catalog and

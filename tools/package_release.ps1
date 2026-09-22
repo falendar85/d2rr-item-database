@@ -31,7 +31,8 @@ Copy-Item -LiteralPath $dll -Destination $manualPlugins
 
 $noticeFiles = @(
     'INSTALL.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'CREDITS.md',
-    'AI_DISCLOSURE.md', 'PRIVACY.md', 'CHANGELOG.md', 'docs/PERMISSIONS.md'
+    'AI_DISCLOSURE.md', 'PRIVACY.md', 'CHANGELOG.md', 'SOURCES.md',
+    'upstream.lock.json', 'docs/PERMISSIONS.md'
 )
 foreach ($relative in $noticeFiles) {
     Copy-Item -LiteralPath (Join-Path $root $relative) -Destination $manualDocs

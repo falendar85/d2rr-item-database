@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 - 2026-09-21
+
+- Packages the complete offline database and guides inside the plugin DLL for
+  installation through the standard D2RLoader Extension catalog.
+- Removes the runtime dependency on loose JSON files without changing the UI,
+  Alt+S input action, query behavior, or overlay runtime behavior.
+- Keeps the manual mod-local installation available as a fallback.
+
 ## 0.5.1 - 2026-09-21
 
 - Makes the **Alt+S** open/close shortcut explicit in the public description and

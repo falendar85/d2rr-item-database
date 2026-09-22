@@ -1,10 +1,14 @@
 #include <D2RLPlugin/api.h>
 #include <itemdb/overlay.hpp>
 #include <itemdb/prototype.hpp>
-#include <filesystem>
+#include <itemdb/resource_ids.h>
 #include <iterator>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <windows.h>
+
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace {
 constexpr D2RL::PluginInfo PluginInfo {
@@ -12,7 +16,7 @@ constexpr D2RL::PluginInfo PluginInfo {
     .abiVersion = D2RL_PLUGIN_ABI_VERSION,
     .id = "item-database",
     .name = "D2RR Item Database",
-    .version = "0.5.1",
+    .version = "0.5.2",
     .author = "Falendar and contributors",
     .description = "Dynamic D2R Reimagined item database overlay.",
     .flags = D2RL::PluginFlags::Client,
@@ -24,6 +28,19 @@ D2RL::Input::ActionHandle openAction = D2RL::Input::InvalidHandle;
 std::unique_ptr<itemdb::Database> database;
 std::unique_ptr<itemdb::PrototypeViewModel> model;
 std::unique_ptr<itemdb::OverlayHost> overlay;
+
+itemdb::Database loadEmbeddedDatabase(unsigned resourceId, const char* label) {
+    const auto module = reinterpret_cast<HMODULE>(&__ImageBase);
+    const auto resource = FindResourceW(module, MAKEINTRESOURCEW(resourceId), MAKEINTRESOURCEW(10));
+    if (resource == nullptr) throw std::runtime_error(std::string("Missing embedded ") + label);
+    const auto byteCount = SizeofResource(module, resource);
+    if (byteCount == 0 || byteCount > 64U * 1024U * 1024U)
+        throw std::runtime_error(std::string("Invalid embedded ") + label + " size");
+    const auto loaded = LoadResource(module, resource);
+    const auto* bytes = static_cast<const char*>(LockResource(loaded));
+    if (bytes == nullptr) throw std::runtime_error(std::string("Cannot read embedded ") + label);
+    return itemdb::Database::parse(itemdb::Json::parse(bytes, bytes + byteCount));
+}
 
 D2RL::Input::ActionResult __cdecl onOpenAction(const D2RL::PluginContext* plugin,
                                                 const D2RL::Input::ActionEvent* event,
@@ -52,17 +69,9 @@ D2RL_PLUGIN_EXPORT auto D2RLoaderLoadPlugin(const D2RL::PluginContext* plugin) n
         if (!D2RL::HasContext(plugin)) return false;
         pluginContext = plugin;
         plugin->LogInfo("D2RR Item Database overlay load started");
-        const wchar_t* directory = D2RL::GetPluginDirectory(plugin);
-        if (directory == nullptr) {
-            plugin->LogError("Item Database database load failed: plugin directory unavailable");
-            return false;
-        }
-        auto databasePath = std::filesystem::path(directory) / L"item-database" / L"database.json";
-        if (!std::filesystem::exists(databasePath)) databasePath = std::filesystem::path(directory) / L"database.json";
-        database = std::make_unique<itemdb::Database>(itemdb::Database::load(databasePath));
-        auto guidePath = std::filesystem::path(directory) / L"item-database" / L"guides.json";
-        if (!std::filesystem::exists(guidePath)) guidePath = std::filesystem::path(directory) / L"guides.json";
-        auto guides = itemdb::Database::load(guidePath);
+        database = std::make_unique<itemdb::Database>(
+            loadEmbeddedDatabase(ITEMDB_DATABASE_RESOURCE_ID, "database.json"));
+        auto guides = loadEmbeddedDatabase(ITEMDB_GUIDES_RESOURCE_ID, "guides.json");
         database->records.insert(database->records.end(),
             std::make_move_iterator(guides.records.begin()), std::make_move_iterator(guides.records.end()));
         database->provenance["guides"] = std::move(guides.provenance);

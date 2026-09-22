@@ -9,26 +9,20 @@
 
 Close the game and D2RLoader before installing or updating the plugin.
 
-## Reimagined Hub
+## Reimagined Hub listing
 
-Install `D2RR-Item-Database-Hub-v0.5.0.zip` from the plugin's Reimagined Hub
-post. The launcher reads `plugininfo.json` and places the native plugin and its
-offline data in the mod-scoped plugin directory. Do not manually extract the Hub
-archive.
+The project is listed on the Reimagined Hub with permission from the Reimagined
+owner. The launcher's standard Hub package format currently installs assets
+inside `Reimagined.mpq`, while D2RLoader native extensions must be installed in
+the sibling `mods\Reimagined\d2rloader` directory. Until the launcher supports
+that native-extension destination, use the manual GitHub Release package below.
 
-The Hub post must include these metadata lines so the launcher can index it:
-
-```text
-PlugVer: 0.5.0
-Desc: Offline searchable item, recipe, crafting, enchant, and orb reference overlay.
-ModVer: 3.0.12
-```
-
-Attach the Hub ZIP to the post.
+For supported ladders, the Reimagined team can also distribute the DLL through
+the launcher's approved optional-extension system.
 
 ## Manual GitHub Release install
 
-1. Download `D2RR-Item-Database-v0.5.0.zip` and `SHA256SUMS.txt` from the
+1. Download `D2RR-Item-Database-v0.5.1.zip` and `SHA256SUMS.txt` from the
    GitHub Release.
 2. Verify the ZIP's SHA-256 hash against `SHA256SUMS.txt`.
 3. Extract the ZIP into:
@@ -37,7 +31,8 @@ Attach the Hub ZIP to the post.
    - `d2rloader\plugins\d2rl-item-database.dll`
    - `d2rloader\plugins\item-database\database.json`
    - `d2rloader\plugins\item-database\guides.json`
-5. Start D2R Reimagined through D2RLoader and press **Alt+S**.
+5. Start D2R Reimagined through D2RLoader.
+6. Press **Alt+S** to open the overlay. Press **Alt+S** again to close it.
 
 The overlay can also be toggled with the `itemdb` D2RLoader console command.
 

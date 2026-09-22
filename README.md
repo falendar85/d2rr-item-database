@@ -18,7 +18,8 @@ It performs no network requests and sends no telemetry.
 - Diablo II: Resurrected with D2R Reimagined 3.0.12
 - D2RLoader with Plugin ABI 4 support
 
-See [`INSTALL.md`](INSTALL.md) for GitHub Release and Reimagined Hub installation.
+See [`INSTALL.md`](INSTALL.md) for installation. After installation, launch D2R
+Reimagined through D2RLoader and press **Alt+S** to open or close the overlay.
 
 ## Build
 
@@ -28,7 +29,7 @@ From a PowerShell prompt with Visual Studio 2022 C++ tools installed:
 python tools/bootstrap.py
 .\tools\build.ps1 -Configuration Release -Stage
 python -m unittest discover -s tests -p "test_*.py"
-.\tools\package_release.ps1 -Version 0.5.0 -ModVersion 3.0.12
+.\tools\package_release.ps1 -Version 0.5.1 -ModVersion 3.0.12
 ```
 
 Pinned upstream revisions and dependency hashes are in `upstream.lock.json`.

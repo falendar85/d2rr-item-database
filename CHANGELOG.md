@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 - 2026-09-21
+
+- Makes the **Alt+S** open/close shortcut explicit in the public description and
+  installation documentation.
+- Corrects installation guidance for the mod-local D2RLoader plugin directory.
+- Removes the incompatible standard Hub asset archive; use the manual GitHub
+  package until the launcher supports native D2RLoader extension destinations.
+
 ## 0.5.0 - 2026-09-21
 
 ### Added

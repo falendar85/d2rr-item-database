@@ -1,5 +1,9 @@
 # D2RR Item Database v0.5.0
 
+> **Superseded by v0.5.1.** The v0.5.0 Hub archive used a destination supported
+> for mod assets but not for native D2RLoader extensions. Use the v0.5.1 manual
+> package and follow `INSTALL.md`.
+
 The first public release provides an offline in-game reference for D2R
 Reimagined items, recipes, crafting, enchants, Power Orbs, and corruption
 affixes. Open or close it with **Alt+S**.
